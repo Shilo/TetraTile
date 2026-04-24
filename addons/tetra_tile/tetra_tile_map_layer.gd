@@ -43,6 +43,16 @@ const _BR := Vector2i(0, 0)
 		visual_z_index_offset = value
 		_sync_visual_layers()
 
+@export var generated_collision_enabled: bool = true:
+	set(value):
+		generated_collision_enabled = value
+		_sync_visual_layers()
+
+@export var logic_collision_enabled: bool = false:
+	set(value):
+		logic_collision_enabled = value
+		_apply_logic_collision()
+
 var _primary_layer: TileMapLayer
 var _overlay_layer: TileMapLayer
 
@@ -50,6 +60,7 @@ var _overlay_layer: TileMapLayer
 func _ready() -> void:
 	_ensure_visual_layers()
 	_apply_logic_layer_opacity()
+	_apply_logic_collision()
 	rebuild.call_deferred()
 
 
@@ -204,6 +215,7 @@ func _get_or_create_visual_layer(layer_name: StringName) -> TileMapLayer:
 
 
 func _sync_visual_layers() -> void:
+	_apply_logic_collision()
 	for layer: TileMapLayer in [_primary_layer, _overlay_layer]:
 		if layer == null or not is_instance_valid(layer):
 			continue
@@ -215,7 +227,7 @@ func _sync_visual_layers() -> void:
 		layer.y_sort_enabled = y_sort_enabled
 		layer.y_sort_origin = y_sort_origin
 		layer.x_draw_order_reversed = x_draw_order_reversed
-		layer.collision_enabled = false
+		layer.collision_enabled = generated_collision_enabled
 		layer.navigation_enabled = false
 		layer.occlusion_enabled = false
 		layer.position = _visual_layer_offset()
@@ -237,6 +249,10 @@ func _apply_logic_layer_opacity() -> void:
 	var color := self_modulate
 	color.a = logic_layer_opacity
 	self_modulate = color
+
+
+func _apply_logic_collision() -> void:
+	collision_enabled = logic_collision_enabled
 
 
 func _queue_rebuild() -> void:

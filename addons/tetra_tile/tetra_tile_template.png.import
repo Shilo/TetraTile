@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dloatgd3yo38y"
-path="res://.godot/imported/tetra_tile_template.png-eda69b1a73672c8576bb64b9ff13ea02.ctex"
+path="res://.godot/imported/tetra_tile_template.png-2b90ce9c26340c0a14e686fbef2c3146.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://addons/tetra_tile/tetra_tile_template.png"
-dest_files=["res://.godot/imported/tetra_tile_template.png-eda69b1a73672c8576bb64b9ff13ea02.ctex"]
+dest_files=["res://.godot/imported/tetra_tile_template.png-2b90ce9c26340c0a14e686fbef2c3146.ctex"]
 
 [params]
 
