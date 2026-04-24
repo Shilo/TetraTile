@@ -10,9 +10,9 @@ By mastering the math of the Dual Grid, TetraTile takes four basic ingredientsâ€
 
 ## ðŸ“‘ Table of Contents
 
-1. [Why TetraTile?](#-why-tetratile-is-a-game-changer)
+1. [Why TetraTile?](#-why-tetra-tile-is-a-game-changer)
 2. [The Tetra-System Template](#-the-tetra-system-template)
-3. [Comparison: TetraTile vs. TileMapDual](#-tetratile-vs-tilemapdual-the-comparison)
+3. [Comparison: TetraTile vs. TileMapDual](#-tetra-tile-vs-tilemapdual-the-comparison)
 4. [Choosing Your Champion](#-choosing-your-champion)
 5. [Learning the Magic](#-learning-the-magic)
 6. [Developer Specification (AI Agent Prompt)](#-developer-specification-ai-agent-prompt)
