@@ -1,6 +1,6 @@
-[gd_resource type="TileSet" format=3]
+[gd_resource type="TileSet" format=3 uid="uid://dyv1io31sbual"]
 
-[ext_resource type="Texture2D" path="res://addons/tetra_tile/demo/tetra_tile_ground.png" id="1_2jhym"]
+[ext_resource type="Texture2D" uid="uid://dy47c7ifxvx8j" path="res://addons/tetra_tile/demo/tetra_tile_ground.png" id="1_2jhym"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_t6276"]
 texture = ExtResource("1_2jhym")

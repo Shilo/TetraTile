@@ -1,10 +1,10 @@
-[gd_scene format=4]
+[gd_scene format=4 uid="uid://bkn2k133opvua"]
 
-[ext_resource type="Texture2D" path="res://addons/tetra_tile/demo/tetra_tile_ground.png" id="1_t3lsh"]
-[ext_resource type="Script" path="res://addons/tetra_tile/tetra_tile_map_layer.gd" id="2_yi4p3"]
-[ext_resource type="Script" path="res://addons/tetra_tile/demo/demo_player.gd" id="3_ojcmv"]
-[ext_resource type="Texture2D" path="res://icon.svg" id="4_g6s2o"]
-[ext_resource type="Script" path="res://addons/tetra_tile/demo/demo_runtime_painter.gd" id="5_81n6k"]
+[ext_resource type="Texture2D" uid="uid://dy47c7ifxvx8j" path="res://addons/tetra_tile/demo/tetra_tile_ground.png" id="1_t3lsh"]
+[ext_resource type="Script" uid="uid://du0uvrtc7fw14" path="res://addons/tetra_tile/tetra_tile_map_layer.gd" id="2_yi4p3"]
+[ext_resource type="Script" uid="uid://cqqaiq1qjwgwg" path="res://addons/tetra_tile/demo/demo_player.gd" id="3_ojcmv"]
+[ext_resource type="Texture2D" uid="uid://cl6fr0jh4x0ri" path="res://icon.svg" id="4_g6s2o"]
+[ext_resource type="Script" uid="uid://dyv8ickdvbeqv" path="res://addons/tetra_tile/demo/demo_runtime_painter.gd" id="5_81n6k"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_t6276"]
 texture = ExtResource("1_t3lsh")
@@ -22,19 +22,18 @@ texture = ExtResource("1_t3lsh")
 physics_layer_0/collision_layer = 1
 sources/0 = SubResource("TileSetAtlasSource_t6276")
 
-[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_j6jcj"]
-radius = 5.0
-height = 18.0
+[sub_resource type="CircleShape2D" id="CircleShape2D_yi4p3"]
+radius = 7.0
 
 [node name="TetraTileDemo" type="Node2D" unique_id=1353073738]
 script = ExtResource("5_81n6k")
 
 [node name="TetraTileMapLayer" type="TileMapLayer" parent="." unique_id=730525392]
 self_modulate = Color(1, 1, 1, 0)
-position = Vector2(96, 112)
-tile_map_data = PackedByteArray("AAD+/wMAAAAAAAAAAAD+/wQAAAAAAAAAAAD//wMAAAAAAAAAAAD//wQAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAQAAAAAAAAAAAABAAMAAAAAAAAAAAABAAQAAAAAAAAAAAACAAMAAAAAAAAAAAACAAQAAAAAAAAAAAADAAMAAAAAAAAAAAADAAQAAAAAAAAAAAAEAAMAAAAAAAAAAAAEAAQAAAAAAAAAAAAFAAMAAAAAAAAAAAAFAAQAAAAAAAAAAAAGAAMAAAAAAAAAAAAGAAQAAAAAAAAAAAAHAAMAAAAAAAAAAAAHAAQAAAAAAAAAAAAIAAMAAAAAAAAAAAAIAAQAAAAAAAAAAAAJAAMAAAAAAAAAAAAJAAQAAAAAAAAAAAACAAIAAAAAAAAAAAADAAIAAAAAAAAAAAAHAAIAAAAAAAAAAAAHAAEAAAAAAAAAAAA=")
+tile_map_data = PackedByteArray("AAAEAAoAAAAAAAAAAAAEAAsAAAAAAAAAAAAFAAoAAAAAAAAAAAAFAAsAAAAAAAAAAAAGAAoAAAAAAAAAAAAGAAsAAAAAAAAAAAAHAAoAAAAAAAAAAAAHAAsAAAAAAAAAAAAIAAkAAAAAAAAAAAAIAAoAAAAAAAAAAAAIAAsAAAAAAAAAAAAJAAkAAAAAAAAAAAAJAAoAAAAAAAAAAAAJAAsAAAAAAAAAAAAKAAoAAAAAAAAAAAAKAAsAAAAAAAAAAAALAAoAAAAAAAAAAAALAAsAAAAAAAAAAAAMAAoAAAAAAAAAAAAMAAsAAAAAAAAAAAANAAgAAAAAAAAAAAANAAkAAAAAAAAAAAANAAoAAAAAAAAAAAANAAsAAAAAAAAAAAAOAAoAAAAAAAAAAAAOAAsAAAAAAAAAAAAPAAoAAAAAAAAAAAAPAAsAAAAAAAAAAAA=")
 tile_set = SubResource("TileSet_62ywd")
 collision_enabled = false
+navigation_enabled = false
 script = ExtResource("2_yi4p3")
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1507627229]
@@ -42,11 +41,11 @@ position = Vector2(160, 72)
 script = ExtResource("3_ojcmv")
 
 [node name="Icon" type="Sprite2D" parent="Player" unique_id=764645308]
-scale = Vector2(0.14, 0.14)
+scale = Vector2(0.11, 0.11)
 texture = ExtResource("4_g6s2o")
 
-[node name="CollisionCapsule" type="CollisionShape2D" parent="Player" unique_id=559550824]
-shape = SubResource("CapsuleShape2D_j6jcj")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=620572780]
+shape = SubResource("CircleShape2D_yi4p3")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1174460567]
 position = Vector2(160, 96)
