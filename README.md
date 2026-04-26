@@ -4,7 +4,9 @@ Lightweight **autotiling addon** for Godot designed to simplify tileset creation
 
 By utilizing the Dual Grid concept, TetraTile takes four base tiles, **Fill, Inner Corner, Border, and Outer Corner**, and expands them into a complete tileset with the same visual coverage as a traditional 47-tile set, but with significantly reduced asset requirements.
 
-<img src="addons/tetra_tile/templates/tetra_horizontal.png" height="64" alt="Tetra Horizontal Tileset Template" style="image-rendering: pixelated;">
+<div style="image-rendering: pixelated; image-rendering: crisp-edges;">
+  <img src="addons/tetra_tile/templates/tetra_horizontal.png" width="256" alt="Tetra Horizontal Tileset Template">
+</div>
 
 ## 📑 Table of Contents
 
