@@ -202,3 +202,60 @@ The Phase 2.1 brainstorm session reframed the Tetra5 plan. **The decisions in CO
   - Wave 2: rewrite Tetra Horizontal/Vertical to use synthesis (auto-detect, bit-identical output verification)
   - Wave 3: 4 originally-planned native layouts in parallel
   - Wave 4: 5-tile templates + bundled fallback TileSets + visual regression + LOC checkpoint
+
+---
+
+## SECOND SUPERSESSION — 2026-04-26 (later same day)
+
+**Phase 2.1 (Single-Tile separate class) collapsed back into Phase 2.** The earlier supersession above introduced the synthesis approach for Tetra4 → 5-archetype rendering. A follow-up brainstorm session reframed this further: the same auto-detect machinery handles a third case — **TETRA1 mode** — where the artist provides 1 tile per strip and the layout synthesizes all 5 archetypes via sub-region slicing. This obviates the need for a separate `TetraTileLayoutSingleTile` class. Single Tetra layout per axis covers all three artist conventions.
+
+### What changed (since the first supersession above)
+
+| First supersession (TETRA-SYNTH-01..06) | This supersession (TETRA-SYNTH-01..09) |
+|---|---|
+| Auto-detect 4-vs-5 source tiles | Auto-detect 1-vs-4-vs-5 source tiles (per strip-axis dimension) |
+| Synthesize 5th archetype from OuterCorner pair (TETRA4 mode) | Synthesize all 5 archetypes from 1 source tile (TETRA1) OR 5th from OuterCorner pair (TETRA4) |
+| `TetraTileLayoutSingleTile` separate class for the 1-tile prototyping use case (Phase 2.1) | NO separate class — TETRA1 mode handled inside the unified Tetra layout via auto-detect |
+| 6 TETRA-SYNTH-* requirements | 9 TETRA-SYNTH-* requirements (covers all 3 modes + enum override + per-strip refinement + warnings) |
+
+### New decisions (Phase 2 plan should pick these up — supersedes/extends D-47..D-52)
+
+- **D-53: Tetra layout absorbs TETRA1 mode via auto-detect.** No separate `TetraTileLayoutSingleTile` class. The unified `TetraTileLayoutTetraHorizontal`/`Vertical` classes auto-detect the source atlas strip-axis tile count and dispatch to one of three modes:
+  - `axis_size == 1` → TETRA1 (synthesize 5 archetypes from 1 source tile per strip via sub-region slicing)
+  - `axis_size == 4` → TETRA4 (synthesize 5th OppositeCorners from OuterCorner pair per strip)
+  - `axis_size == 5` → TETRA5 with per-strip refinement (TETRA4 for strips with col 4 empty, TETRA5 for fully-populated strips)
+  - Other axis sizes (0, 2, 3, 6+) → render disabled + `update_configuration_warnings()` fires
+- **D-54: `TileCountMode` enum on the Tetra layout class for explicit override.** Members: `AUTO` (default), `TETRA1`, `TETRA4`, `TETRA5`. UPPER_SNAKE_CASE per GDScript style guide. AUTO triggers detection; explicit values skip detection and validate atlas content with explicit warnings on mismatch. Use cases for non-AUTO: (a) prototyping with a 4/5-wide atlas where artist wants TETRA1 semantics; (b) team conventions locking everyone to a specific mode; (c) self-documenting `.tres` files.
+- **D-55: Detection is dimension-based ONLY — no pixel-content inspection.** Reasons: (1) false positives unacceptable (artist's monochrome tiles could trigger SingleTile false-positive under similarity heuristics); (2) atlas dimensions are a hard fact, not heuristic; (3) the rare collision case (TETRA1 intent + 4/5-wide atlas) is solved by the enum override. Detection cost is O(1) for atlas-axis-size + O(N strips) for per-strip `has_tile()` refinement in 5-wide atlases. Microseconds at contract-load. Manual override skips detection entirely (saves microseconds, real value is explicit error messaging).
+
+### Decisions superseded (since first supersession)
+
+- **TETRA-SYNTH-01..06** (the previous 6 requirements) → REPLACED by **TETRA-SYNTH-01..09** (9 requirements covering all three modes + enum + per-strip refinement + warnings). The previous reqs covered TETRA4 only; the new set is mode-agnostic.
+- **SINGLE-01..05** (Phase 2.1 requirements) → RETIRED. TETRA1 mode in TETRA-SYNTH-* covers their intent. Phase 2.1 directory removed.
+- **First-supersession Wave 2 ("rewrite Tetra Horizontal/Vertical to use synthesis (auto-detect, bit-identical output verification)")** → EXPANDED to "rewrite Tetra Horizontal/Vertical to use synthesis with auto-detect of 1/4/5 modes + TileCountMode enum + per-strip refinement + bit-identical output verification for TETRA4 mode."
+
+### Decisions still in force from first supersession
+
+- D-47 (`get_atlas_grid_size()` based detection) — extended to handle 1, 4, 5 (not just 4, 5)
+- D-48 (synthesized atlas internal to `_primary_layer`, source `tile_set` never mutated) — unchanged
+- D-49 (collision/occlusion/navigation polygons copied; animation/custom-data NOT) — unchanged
+- D-50 (pixel-identity test gate for TETRA4 mode) — unchanged
+- D-51 (overlay-layer deletion is a breaking change, no compat shim) — unchanged
+- D-52 (Tetra5 hand-authored 5th tile preserved as USE CASE, not separate class) — extended: TETRA1 (1 tile) ALSO preserved as use case, also no separate class
+
+### Naming convention (per user direction)
+
+- Enum members use `TETRA1`, `TETRA4`, `TETRA5` (UPPER_SNAKE_CASE per GDScript style guide)
+- Requirement IDs remain `TETRA-SYNTH-*` (documentation convention)
+- File / class naming unchanged: `tetra_tile_layout_tetra_horizontal.gd` → `TetraTileLayoutTetraHorizontal` (per Phase 1 D-16 precedent)
+
+### Wave breakdown (revised — supersedes first-supersession waves)
+
+- Wave 1: synthesis machinery (`_synthesize_strip()` helper covering all 3 modes via `Image.blit_rect`, runtime TileSet construction, collision polygon copy) + delete overlay layer path from `TetraTileMapLayer` + `AtlasSlot`
+- Wave 2: rewrite `TetraTileLayoutTetraHorizontal`/`Vertical` with `TileCountMode` enum + auto-detect (1/4/5 + per-strip refinement) + `update_configuration_warnings()` + bit-identical pixel-hash test for TETRA4 mode
+- Wave 3: 4 native layouts in parallel (DualGrid16, Wang2Edge, Wang2Corner, Min3x3)
+- Wave 4: 6 templates total (TETRA1 H+V new, TETRA4 H+V existing, TETRA5 H+V new) + bundled fallback TileSets + visual regression for all 3 Tetra modes + LOC checkpoint
+
+### What this means for the Phase 2 planner
+
+If you already started planning Phase 2 against the first supersession (D-47..D-52), you can re-run `/gsd-discuss-phase 2` safely — the discussion log is now coherent with the second supersession. The 4 native layouts (DualGrid16/Wang2Edge/Wang2Corner/Min3x3) are unchanged; the architectural lift is broader (TETRA1 + TETRA4 + TETRA5 modes + enum + per-strip refinement) but uses the same synthesis machinery.

@@ -7,7 +7,7 @@ stopped_at: Phase 2 context gathered (Tetra5 append + overlay-skip refactor)
 last_updated: "2026-04-26T08:19:53.959Z"
 last_activity: 2026-04-26
 progress:
-  total_phases: 7
+  total_phases: 6
   completed_phases: 1
   total_plans: 5
   completed_plans: 5
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0%
 - 2026-04-26: Phase 2.1 inserted after Phase 2 (single-tile-layout) — ships `TetraTileLayoutSingleTile`. Adds 5 requirements (SINGLE-01..05). Companion artifact: `.planning/research/layouts/RPG_MAKER.md` audits the RPG Maker family and recommends offline-importer path for v0.3+ — out of scope for v0.2.0.
 - 2026-04-26 (later): **Architectural pivot — overlay-layer removal + unified Tetra synthesis.** The Phase 2.1 brainstorm session reframed Phase 2's Tetra5 work. Instead of shipping `TetraTileLayoutTetra5Horizontal`/`Vertical` as separate classes (CONTEXT.md D-28..D-46), the existing Tetra layouts gain load-time synthesis of the 5th OppositeCorners archetype from the OuterCorner tile. The runtime `_overlay_layer` is **deleted entirely** — every v0.2 layout renders via single-layer 5-archetype dispatch. Tetra layouts auto-detect 4-vs-5 source tiles. Single-Tile (Phase 2.1) updated to slice into 5 archetypes (not 4). Adds 6 new requirements (TETRA-SYNTH-01..06), supersedes Phase 2's planned TETRA5-* IDs (which never landed in REQUIREMENTS.md). Multi-terrain Y-axis convention added to v2 backlog (MULTITERR-01..05) with explicit design-coupling note to VAR-01 (variation). Full supersession notice in `.planning/phases/02-native-layouts/02-DISCUSSION-LOG.md`. Coverage 50 → 56 requirements.
 - 2026-04-26 (later): **User policy update — breaking changes always allowed.** Recorded as feedback memory + CLAUDE.md "Breaking Changes Policy (HARD RULE)" + PROJECT.md constraint update. Never write backwards-compat shims. Never defer features for compat reasons. CHANGELOG entries are the only acceptable compat work.
+- 2026-04-26 (later): **Phase 2.1 collapsed back into Phase 2 — TETRA1 mode folded into the Tetra layout via auto-detect.** The unified `TetraTileLayoutTetraHorizontal`/`Vertical` classes now handle three modes (TETRA1 / TETRA4 / TETRA5) via auto-detection of the source atlas strip-axis tile count. `TileCountMode` enum (`AUTO` / `TETRA1` / `TETRA4` / `TETRA5`) provides explicit override. Single class per axis covers all modes; SINGLE-01..05 retired and TETRA-SYNTH-* expanded from 6 to 9 requirements. Phase 2.1 directory removed (was empty). Coverage 56 → 54. Total phases 7 → 6. Naming convention: enum members use `TETRA1`/`TETRA4`/`TETRA5` (UPPER_SNAKE_CASE per GDScript style); requirement IDs remain `TETRA-SYNTH-*`. Full algorithm + edge-case handling captured in Phase 2 DISCUSSION-LOG D-53..D-55.
 
 ### Decisions
 
