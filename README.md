@@ -29,11 +29,11 @@
 Already have tiles in a different format? No problem. TetraTile ships with a library of layouts covering virtually every popular autotiling convention out of the box:
 
 - **[Tetra](#-the-tetra-system-template)** (horizontal & vertical): the signature 4-tile minimum
-- **[Dual Grid](https://www.youtube.com/watch?v=jEWFSv3ivTg)**: the popular 16-tile corner-mask format
-- **[Wang](https://www.boristhebrave.com/permanent/24/06/cr31/stagecast/wang/intro.html)** (2-edge & 2-corner): the classic edge/corner-color system
-- **[47-tile Blob](https://www.boristhebrave.com/2021/11/14/classification-of-tilesets/)**: the full Godot/Wang blob set
-- **[Tilesetter](https://www.tilesetter.org/docs/generating_tilesets)** (Wang 15 & Blob 47): atlases as exported by Tilesetter
-- **[PixelLab](https://www.pixellab.ai/docs/tools/create-tileset)** (top-down & side-scroller): native image outputs from the PixelLab Aseprite extension
+- **<a href="https://www.youtube.com/watch?v=jEWFSv3ivTg" target="_blank" rel="noopener">Dual Grid ↗</a>**: the popular 16-tile corner-mask format
+- **<a href="https://www.boristhebrave.com/permanent/24/06/cr31/stagecast/wang/intro.html" target="_blank" rel="noopener">Wang ↗</a>** (2-edge & 2-corner): the classic edge/corner-color system
+- **<a href="https://www.boristhebrave.com/2021/11/14/classification-of-tilesets/" target="_blank" rel="noopener">47-tile Blob ↗</a>**: the full Godot/Wang blob set
+- **<a href="https://www.tilesetter.org/docs/generating_tilesets" target="_blank" rel="noopener">Tilesetter ↗</a>** (Wang 15 & Blob 47): atlases as exported by Tilesetter
+- **<a href="https://www.pixellab.ai/docs/tools/create-tileset" target="_blank" rel="noopener">PixelLab ↗</a>** (top-down & side-scroller): native image outputs from the PixelLab Aseprite extension
 - **Minimal 3x3**: the 9-tile match-sides format used by RPG Maker A2 and legacy Godot 3.x
 
 Whatever convention your art was drawn for, TetraTile can paint with it. And if your favorite isn't built in, you can plug in a custom layout of your own.
@@ -53,7 +53,7 @@ The two disconnected diagonal states are handled by composing two transformed ou
 
 ## ⚔️ TetraTile vs. TileMapDual API
 
-[TileMapDual](https://github.com/pablogila/TileMapDual) is an established solution for Dual Grid systems in Godot. **TetraTile** takes a narrower scope, focusing on standard orthogonal grids with a minimal authoring surface.
+<a href="https://github.com/pablogila/TileMapDual" target="_blank" rel="noopener">TileMapDual ↗</a> is an established solution for Dual Grid systems in Godot. **TetraTile** takes a narrower scope, focusing on standard orthogonal grids with a minimal authoring surface.
 
 | Area             | TetraTile                                                                  | TileMapDual                                                            |
 | ---------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -77,7 +77,7 @@ TetraTile is smaller because it focuses on a specific subset of the multi-terrai
 - **Engine Purity:** TetraTile acts as a lightweight extension of the native `TileMapLayer`. It allows you to use Godot's native painting tools as intended, with the system handling the transformation logic automatically.
 - **Direct Logic:** It uses direct bitwise math to determine rotations and flips, keeping the runtime path short and easy to reason about.
 
-### Why choose [TileMapDual](https://github.com/pablogila/TileMapDual)?
+### Why choose <a href="https://github.com/pablogila/TileMapDual" target="_blank" rel="noopener">TileMapDual ↗</a>?
 
 - **Complex Transitions:** For projects requiring complex "Grass-to-Sand-to-Rock" multi-terrain blending, TileMapDual is designed to handle that specific complexity.
 - **Standard Templates:** If you are already working with 16-tile Dual Grid (Wang) tilesets, TileMapDual provides a direct solution for those templates.
@@ -171,10 +171,10 @@ Future ideas remain intentionally separate from the V1 API:
 
 ## 🔗 External Resources
 
-- [Godot 4 Autotilling Documentation](https://github.com/dandeliondino/godot-4-tileset-terrains-docs) - A detailed guide and starter project for understanding Godot 4's native terrain system.
-- [The Dual Grid Concept](https://www.youtube.com/watch?v=jEWFSv3ivTg) - A brilliant deep dive into how offset grid math solves the 47-tile problem.
-- [Drawing Only 5 Tiles](https://www.youtube.com/watch?v=aWcCNGen0cM) - The inspiration for TetraTile's minimalism, showing how to achieve high-end results with a tiny asset footprint.
+- <a href="https://github.com/dandeliondino/godot-4-tileset-terrains-docs" target="_blank" rel="noopener">Godot 4 Autotilling Documentation ↗</a> - A detailed guide and starter project for understanding Godot 4's native terrain system.
+- <a href="https://www.youtube.com/watch?v=jEWFSv3ivTg" target="_blank" rel="noopener">The Dual Grid Concept ↗</a> - A brilliant deep dive into how offset grid math solves the 47-tile problem.
+- <a href="https://www.youtube.com/watch?v=aWcCNGen0cM" target="_blank" rel="noopener">Drawing Only 5 Tiles ↗</a> - The inspiration for TetraTile's minimalism, showing how to achieve high-end results with a tiny asset footprint.
 
 ## 🙏 Attributions
 
-- [Kenney's Pico-8 Platformer](https://kenney.nl/assets/pico-8-platformer) - Asset pack used for the demo ground texture (CC0).
+- <a href="https://kenney.nl/assets/pico-8-platformer" target="_blank" rel="noopener">Kenney's Pico-8 Platformer ↗</a> - Asset pack used for the demo ground texture (CC0).
