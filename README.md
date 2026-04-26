@@ -174,6 +174,10 @@ Future ideas remain intentionally separate from the V1 API:
 - <a href="https://github.com/dandeliondino/godot-4-tileset-terrains-docs" target="_blank" rel="noopener">Godot 4 Autotilling Documentation ↗︎</a> - A detailed guide and starter project for understanding Godot 4's native terrain system.
 - <a href="https://www.youtube.com/watch?v=jEWFSv3ivTg" target="_blank" rel="noopener">The Dual Grid Concept ↗︎</a> - A brilliant deep dive into how offset grid math solves the 47-tile problem.
 - <a href="https://www.youtube.com/watch?v=aWcCNGen0cM" target="_blank" rel="noopener">Drawing Only 5 Tiles ↗︎</a> - The inspiration for TetraTile's minimalism, showing how to achieve high-end results with a tiny asset footprint.
+- <a href="https://excaliburjs.com/blog/Dual%20Tilemap%20Autotiling%20Technique/" target="_blank" rel="noopener">Dual Tilemap Autotiling Technique (Excalibur.js) ↗︎</a> - Codifies the 5-archetype dual-grid set: <code>Filled</code>, <code>Edge</code>, <code>InnerCorner</code>, <code>OuterCorner</code>, <code>OppositeCorners</code>. Source for TetraTile's <code>Tetra5</code> "Opposite Corners" archetype name. Companion code: <a href="https://github.com/jyoung4242/dual-grid-auto-tiling" target="_blank" rel="noopener">jyoung4242/dual-grid-auto-tiling ↗︎</a>.
+- <a href="https://youtu.be/Uxeo9c-PX-w?t=305" target="_blank" rel="noopener">Oskar Stålberg — dual-grid implementation walkthrough (5:05) ↗︎</a> - The dual-grid talk that popularized this technique; the deep-link jumps straight to the tile-implementation breakdown.
+- <a href="https://www.youtube.com/watch?v=buKQjkad2I0" target="_blank" rel="noopener">Programming Terrain Generation for my Farming Game ↗︎</a> - Devlog showing dual-grid / 5-tile autotiling applied in a real game project.
+- <a href="https://www.rpgmakerweb.com/blog/classic-tutorial-how-autotiles-work" target="_blank" rel="noopener">Classic Tutorial: How Autotiles Work (RPG Maker) ↗︎</a> - Explains RPG Maker's A2 autotile internals — each tile composed from 4 mini-tiles of 24×24 px. Background reading for the eventual <code>RPGM-01/02</code> subtile compositor (v0.3+).
 
 ## 🙏 Attributions
 
