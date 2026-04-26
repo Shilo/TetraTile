@@ -193,14 +193,18 @@ func mask_to_atlas(mask: int) -> PentaTileAtlasSlot:
 	return null
 
 
-# Build an AtlasSlot — branches on `axis` for X-axis vs Y-axis layout.
-# Replaces Phase 1's _make_slot override-in-subclass pattern.
+# Build an AtlasSlot — always returns horizontal-strip coords.
+#
+# WR-07 FIX: the SYNTHESIZED atlas is ALWAYS a horizontal strip regardless of `axis`
+# (see PentaTileSynthesis.build_tile_set_from_synthesis — strip_width = tile_size.x *
+# slots.size(); tiles registered at Vector2i(i, 0) only). The user-facing `axis` enum
+# governs only which axis the synthesizer WALKS when reading the source TileSet —
+# the OUTPUT layout is invariant. Therefore _make_slot must always return
+# Vector2i(slot_index, 0); a vertical Vector2i(0, slot_index) lookup hits an
+# unregistered atlas coord and renders empty (the latent BLOCKER from the audit).
 func _make_slot(slot_index: int, transform_flags: int) -> PentaTileAtlasSlot:
 	var slot := PentaTileAtlasSlot.new()
-	if axis == Axis.HORIZONTAL:
-		slot.atlas_coords = Vector2i(slot_index, 0)                                  # x-axis strip
-	else:
-		slot.atlas_coords = Vector2i(0, slot_index)                                  # y-axis strip
+	slot.atlas_coords = Vector2i(slot_index, 0)                                      # synthesized atlas is always horizontal
 	slot.transform_flags = transform_flags
 	slot.alternative_tile = 0                                                        # no variation in Phase 2
 	return slot
