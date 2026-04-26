@@ -136,9 +136,8 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 
 
 # 16-state corner-mask resolution under the new Phase 2 slot ordering.
-# (Migrated from Phase 1's PentaTileLayoutPentaHorizontal.mask_to_atlas — slot
-# indices remapped per the locked ordering; OuterCorner now derives from
-# slot 0 + transform per Gate 1 anchoring spec.)
+# Slot indices remapped from Phase 1's horizontal layout per the locked ordering;
+# OuterCorner now derives from slot 0 + transform per Gate 1 anchoring spec.
 #
 # Mask 0 returns null (dispatcher short-circuits to erase).
 # Masks 6 and 9 use slot 4 (OppositeCorners) directly — single-layer paint, no
