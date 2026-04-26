@@ -1,8 +1,8 @@
-# TetraTile MVP Implementation Plan
+# PentaTile MVP Implementation Plan
 
 ## Public Contract
 
-- `TetraTileMapLayer` extends `TileMapLayer` and is the only public runtime class.
+- `PentaTileMapLayer` extends `TileMapLayer` and is the only public runtime class.
 - Users paint logic cells with Godot's native TileMap tools or call normal `set_cell()`/`erase_cell()`.
 - The class overrides `_update_cells(coords, forced_cleanup)` and updates managed internal visual layers.
 - The atlas is strict four-tile order: Fill, Inner Corner, Border, Outer Corner.
