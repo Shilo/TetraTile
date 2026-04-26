@@ -1,152 +1,204 @@
-# Phase 2: Native Layouts — Context
+# Phase 2: Native Layouts + Architectural Simplification — Context
 
-**Gathered:** 2026-04-26
+**Gathered:** 2026-04-26 (re-discussion / fifth supersession round)
+**Supersedes:** the prior 02-CONTEXT.md authored at commit 8ca3231 (D-28..D-46), which is now HISTORICAL
 **Status:** Ready for planning
+
+> **Reading order for downstream agents.** This CONTEXT.md is the operative artifact. The architectural decisions it relies on are recorded across four supersession rounds in `02-DISCUSSION-LOG.md` (D-47..D-67). The fifth supersession round at the bottom of that log records this re-discussion. Read both files together: the log explains *why* every decision is what it is; this file states *what* the decisions are and where the open gates remain.
 
 <domain>
 ## Phase Boundary
 
-Phase 2 ships **six** PentaTile-native layout subclasses with hand-authored slot tables and bundled fallback TileSets:
+Phase 2 ships **five native layout subclasses** plus a sweeping architectural simplification of the v0.1/Phase 1 surface. Concretely:
 
-| Layout | Atlas | Mask | Grid model | Overlay layer? |
-|---|---|---|---|---|
-| `PentaTileLayoutDualGrid16` | 4×4 (16 tiles) | 4-bit corner | dual | no |
-| `PentaTileLayoutWang2Edge` | 4×4 (16 tiles) | 4-bit edge (CR31 N/E/S/W) | single | no |
-| `PentaTileLayoutWang2Corner` | 4×4 (16 tiles) | 4-bit corner (CR31 NE/SE/SW/NW) | single | no |
-| `PentaTileLayoutMinimal3x3` | 3×3 (9 tiles) | 4-bit edge | single | no |
-| `PentaTileLayoutPenta5Horizontal` (NEW) | 5×1 strip | 4-bit corner | dual | **no** (5th tile replaces overlay) |
-| `PentaTileLayoutPenta5Vertical` (NEW) | 1×5 strip | 4-bit corner | dual | **no** (5th tile replaces overlay) |
+### New layouts (5 ship)
 
-Each ships a bundled fallback TileSet (`PREVIEW-02`) so a fresh `PentaTileMapLayer` can paint with the layout attached and `tile_set == null` (consumer-side fallback routing lands in Phase 4).
+| Layout | Atlas | Mask | Grid model |
+|---|---|---|---|
+| `PentaTileLayoutDualGrid16` | 4×4 (16 tiles) | 4-bit corner (TL=1/TR=2/BL=4/BR=8) | dual |
+| `PentaTileLayoutWang2Edge` | 4×4 (16 tiles) | 4-bit edge (CR31 N=1/E=2/S=4/W=8) | single |
+| `PentaTileLayoutWang2Corner` | 4×4 (16 tiles) | 4-bit corner (CR31 NE=1/SE=2/SW=4/NW=8) | single |
+| `PentaTileLayoutMinimal3x3` | 3×3 (9 tiles) | 4-bit edge | single |
+| `PentaTileLayoutPenta` (merged from Phase 1's H/V pair) | 1..5 × N strip × axis | 4-bit corner (Penta-anchored) | dual |
 
-**The architectural lift in this phase, beyond the layout subclass adds:** add `needs_diagonal_overlay() -> bool` virtual on `PentaTileLayout` base, and rewrite `_ensure_visual_layers` to lazy-skip `_overlay_layer` creation for any layout that returns `false` (i.e. every layout in v0.2 except the 4-tile Tetra Horizontal/Vertical from Phase 1). This is the perf optimization the 5-tile work surfaces; it propagates to every other Phase-2/3/3.5 layout for free.
+### Architectural sweep (delete a lot)
 
-Phase 2 originally scoped 4 native layouts + Min3x3 (5 layouts). Per this discussion, the 5-tile Tetra pair appended to Phase 2's scope (now **6 layouts**) — phases 3 / 3.5 / 4 / 5 unchanged.
+- **Delete `PentaTileAtlasContract` entirely.** `layout: PentaTileLayout` lives directly on `PentaTileMapLayer`. No wrapper; no `version: int`; no `variation_seed`; no `_DEFAULT_LAYOUT` static singleton. Per the no-forward-compat policy in [CLAUDE.md](../../../CLAUDE.md), there is no migration shim.
+- **Delete the runtime `_overlay_layer`.** `PentaTileMapLayer` has exactly ONE child visual layer after Phase 2. All 5 archetypes (Fill / Border / InnerCorner / OuterCorner / OppositeCorners) are dispatched from a single layer; OppositeCorners is synthesized at load time. `_OVERLAY_LAYER_NAME`, `_paint_overlay_for_slot()`, and `AtlasSlot.diagonal_complement_atlas_coords` are removed.
+- **Merge `PentaTileLayoutPentaHorizontal` + `PentaTileLayoutPentaVertical`** into a single `PentaTileLayoutPenta` class with `axis: Axis = HORIZONTAL` enum and `tile_count: TileCountMode { AUTO, AUTO_STRIP, ONE = 1, TWO = 2, THREE = 3, FOUR = 4, FIVE = 5 }` enum. Five progressive synthesis modes; AUTO is dimension-only, AUTO_STRIP is per-strip detection.
+- **New slot ordering** across all Penta modes: `0=IsolatedCell, 1=Fill, 2=Border, 3=InnerCorner, 4=OppositeCorners`. **OuterCorner is implicit** — synthesized from slot 0's corners; never has a dedicated slot.
+- **Rename `template_image` → `bitmask_template`.** Single PNG per layout serves as BOTH the inspector preview AND the prototyping fallback's source pixels. **Hide `fallback_tile_set`** from the inspector (replaced by `get_fallback_tile_set() -> TileSet` virtual that codegens at first call). **Delete `decoder_image`** (was speculative).
+- **Co-locate bundled PNGs** next to layout `.gd` files. Tetra has 10 PNGs in `addons/penta_tile/layouts/penta_tile_layout_penta/` (5 modes × 2 axes); single-variant layouts use flat siblings under `addons/penta_tile/layouts/`. The entire `addons/penta_tile/templates/` folder is deleted; `addons/penta_tile/contracts/` folder is deleted; `addons/penta_tile/penta_tile_template.png` (original v0.1 reference) is deleted.
+
+### What Phase 2 does NOT do (consumed in later phases)
+
+- Fallback routing wiring (`tile_set == null` → `layout.get_fallback_tile_set()`) lands in Phase 4. Phase 2 only ships the codegen virtual + the bundled PNGs that feed it.
+- TileBitTools-decoded layouts (Blob47Godot, TilesetterWang15, TilesetterBlob47) → Phase 3.
+- PixelLab layouts → Phase 3.5.
+- Demo refresh + README + CHANGELOG + release tag → Phase 5.
+
+### Scope footprint
+
+- **30 of 56 v1 requirements** owned by this phase.
+- **17 success criteria** in ROADMAP.md.
+- **7 waves** locked (see D-68 below).
+- **Estimated +400-600 LOC** of net GDScript over the Phase 1 baseline (~530 LOC); cumulative ~930-1130 LOC. End-of-Phase identity-guardrail audit per ROADMAP.md.
 
 </domain>
 
 <decisions>
 ## Implementation Decisions
 
-Decision IDs continue from Phase 1 (Phase 1 ended at D-27).
+Decision IDs in this round start at **D-68**, continuing the trail in `02-DISCUSSION-LOG.md`. The architectural decisions D-47..D-67 are recorded across the **first**, **second**, **third**, and **fourth supersession rounds** in that log; this round is the **fifth supersession** and adds operational decisions only — no architectural changes.
 
-### Phase 2 scope expansion (Penta5 layouts appended)
+### Wave breakdown
 
-- **D-28: Append `PentaTileLayoutPenta5Horizontal` + `PentaTileLayoutPenta5Vertical` to Phase 2's scope.** Original Phase 2 scope (4 native + Min3x3) stays intact; the 5-tile Tetra pair is *added*, not substituted. Net: 6 layouts in Phase 2. Phase numbering and downstream phase scope unchanged.
-- **D-29: Class root name = `Penta5`.** `PentaTileLayoutPenta5Horizontal` / `PentaTileLayoutPenta5Vertical`. Matches PentaTile's own number-suffix convention (`Wang2Edge`, `Wang2Corner`, `DualGrid16`, `Blob47Godot`, `TilesetterWang15`, `TilesetterBlob47`, `Minimal3x3`). Rejected: `PentaEdge` (overloads with the existing "Edge" archetype = `Border`); `PentaOpposite` / `PentaOppositeCorners` (community standard term but reads awkwardly as a class name); `PentaDiagonal` ("diagonal" overloaded with diagonal-stride and the disconnected-diagonal mask cases). Penta5 is unambiguous, terse, and pairs naturally with the unsuffixed 4-tile `Tetra*` parent classes.
-- **D-30: 5th archetype's *tile* name (in code comments + docs + `description` field) = `Opposite Corners`.** Excalibur.js dual-grid article codifies the 5-archetype set as `Filled / Edge / InnerCorner / OuterCorner / OppositeCorners` (https://excaliburjs.com/blog/Dual%20Tilemap%20Autotiling%20Technique/). Aligns with broader dual-grid community vocabulary. Suggested constant name in `Penta5Horizontal`: `const _OPPOSITE_CORNERS := 4` (atlas slot index 4, the 5th column).
+- **D-68: The 7-wave breakdown from the FOURTH SUPERSESSION (D-67) is locked verbatim; not re-litigated this round.** The size of Phase 2 (~30 reqs, 17 success criteria) was discussed and the user chose to keep it as one phase rather than split into Phase 2.0 / 2.5 — the dependency graph is tight enough that a split would not buy clarity.
+  - **Wave 1 — Pre-work: Phase 1 verification migration + base-class renames.** Migrate `01-VERIFICATION.md`'s 26 tests (LAYER-05) to the new API surface — rewrites against `layout: PentaTileLayout` + `PentaTileLayoutPenta(axis=...)` + `bitmask_template` + single-layer dispatch. New tests added for TWO/THREE/FIVE modes + AUTO_STRIP. Phase 1's `01-VERIFICATION.md` marked historical. Rename `template_image` → `bitmask_template` on `PentaTileLayout` base; remove `fallback_tile_set` @export; add `get_fallback_tile_set()` virtual stub; delete `decoder_image`.
+  - **Wave 2 — Synthesis machinery + overlay deletion + contract deletion + demo rebind.** Build `_synthesize_strip(strip_index, mode)` covering all 5 modes (ONE/TWO/THREE/FOUR/FIVE); fill the `get_fallback_tile_set()` stub from Wave 1 with runtime TileSet construction + collision/occlusion/navigation polygon copy. Delete `_overlay_layer`, `_OVERLAY_LAYER_NAME`, `_paint_overlay_for_slot()`, `AtlasSlot.diagonal_complement_atlas_coords`. Delete `PentaTileAtlasContract` class + `addons/penta_tile/contracts/` folder + `penta_tile_atlas_contract.gd` + `addons/penta_tile/penta_tile_template.png`. Delete the static `_DEFAULT_LAYOUT` singleton at `penta_tile_map_layer.gd:55-58, 193-198`. Replace `atlas_contract` property with `layout: PentaTileLayout` (idempotence guard + disconnect-before-reconnect on `layout.changed`). **Atomically rebind `addons/penta_tile/demo/penta_tile_demo.tscn`** — non-skippable Wave 2 acceptance criterion (LAYER-04).
+  - **Wave 3 — Penta layout merge.** Merge `PentaTileLayoutPentaHorizontal` + `Vertical` into `PentaTileLayoutPenta` with `axis: Axis = HORIZONTAL` + `tile_count: TileCountMode { AUTO, AUTO_STRIP, ONE = 1, TWO = 2, THREE = 3, FOUR = 4, FIVE = 5 }`. Hide `bitmask_template` via `_validate_property` (axis × mode lookup table). Wire to `_synthesize_strip()` from Wave 2.
+  - **Wave 4 — 4 native layouts in parallel.** DualGrid16, Wang2Edge, Wang2Corner, Min3x3 ship using the new conventions + flat-sibling PNG bundles. Each layout's `bitmask_template` and `get_fallback_tile_set()` wired up.
+  - **Wave 5 — Asset relocation.** Delete `addons/penta_tile/templates/` folder. Migrate the 5 existing flat PNGs to co-located paths: 10 in `addons/penta_tile/layouts/penta_tile_layout_penta/{one,two,three,four,five}_{horizontal,vertical}.png`; 4 flat siblings (`penta_tile_layout_dual_grid_16.png`, `penta_tile_layout_wang_2_edge.png`, `penta_tile_layout_wang_2_corner.png`, `penta_tile_layout_minimal_3x3.png`). Update / rename the bitmask generator script (renamed from `_generate_greybox_templates.py`).
+  - **Wave 6 — AUTO/AUTO_STRIP detection + warnings + baseline capture + demo refresh.** Implement detection algorithms (PENTA-SYNTH-02/03). Wire `update_configuration_warnings()` per PENTA-SYNTH-08 (atlas axis 0/6+, explicit-mode mismatch, AUTO_STRIP gaps). Capture FOUR-mode regression baseline per PENTA-SYNTH-12. Demo exercises ONE/FOUR/FIVE at minimum.
+  - **Wave 7 — Closeout.** LOC checkpoint vs Phase 1 baseline (~530 LOC) flagging if cumulative materially exceeds ~1100. CHANGELOG entries per DOC-04.
 
-### 5th-tile rotation semantics
+### Plan-phase gates (open questions; plan-phase MUST resolve before Wave 2 task generation)
 
-- **D-31: One painted sprite, runtime applies a transform for the mirror diagonal.** Author paints ONE OppositeCorners sprite. The runtime applies `transform_flags = _ROTATE_0` for the canonical mask, and `_ROTATE_90` (or `TRANSFORM_FLIP_H` — planner picks the convention that matches the existing OUTER_CORNER rotation table for visual continuity) for the mirror. Rejected: 2-sprite asymmetric variant ("becomes 6-tile, breaks the name") and author-mirrored sentinel ("fragile if author wants asymmetric").
-- **D-32: Canonical paint convention — paint the 5th tile to match mask 9 (TL+BR, the "\\" diagonal).** Mask 9 is the smaller TR-empty + BL-empty geometry; mask 6 (TR+BL = "/" diagonal) is the mirror. Convention rationale: matches the TL-anchored bit ordering (TL=1 is the lowest bit; the canonical pattern starts from TL and moves through the corners). `mask_to_atlas` for Penta5: case 9 → `_make_slot(_OPPOSITE_CORNERS, _ROTATE_0)`; case 6 → `_make_slot(_OPPOSITE_CORNERS, <mirror transform>)`. Planner finalizes the exact transform_flags constant by visually verifying against the v0.1 overlay-composed output (must remain bit-identical when the 5th-tile art is the v0.1 overlay-composed pixels).
-- **D-46: PentaTile's canonical-paint anchoring INTENTIONALLY DIVERGES from Excalibur.js's example code.** Excalibur's `calculateMeshSprite()` uses the opposite anchoring: TR+BL (mask 6 in PentaTile's bit naming) is the unrotated case (`spriteIndex = 3; rotation = 0`), and TL+BR (mask 9) is the rotated case (`rotation = 90`). Both anchorings are correct; the choice is conventional. PentaTile picks mask 9 = `_ROTATE_0` because it matches the project's TL=1 lowest-bit-first ordering (also used in `draw_corner_mask` in `_generate_greybox_templates.py:42-58` and across all corner-mask layouts in the project). Document the divergence in `PentaTileLayoutPenta5Horizontal`'s class-level `##` doc-comment so an artist cross-referencing the Excalibur article (or a developer porting code) is not surprised by mirrored output. Suggested doc-comment line: *"Note: PentaTile anchors mask 9 (TL+BR) as the unrotated OppositeCorners case. The Excalibur.js dual-grid reference uses the opposite anchor (mask 6 = TR+BL); both are valid conventions. If you author your 5th tile against the Excalibur convention, mask 6 and mask 9 will appear swapped — flip your sprite horizontally to match PentaTile's anchoring."*
+- **D-69: PENTA-SYNTH-05 ONE-mode sub-region anchoring is a HARD plan-phase gate.** The geometric question — *"where in slot 0 do the synthesized archetypes' sub-regions live? what tile-size constraints apply (square only? minimum dimensions?)? how does the anchoring degrade on non-square tiles?"* — is genuinely UNDEFINED. Spikes 001/002/003 covered DECODER feasibility, not synthesis-from-a-single-source. The user explicitly declined a Spike 004 round in this re-discussion (their words: *"i have no clue what spiking is, i just want this phase to be executed asap"*). Therefore: **plan-phase MUST lock the anchoring spec as a load-bearing decision, with explicit justification for the chosen anchoring convention, before Wave 2 generates tasks.** Required deliverables in PLAN.md:
+  1. A diagram (ASCII or PNG) showing where each archetype's sub-rect lives within slot 0 for ONE mode.
+  2. Tile-size constraints (e.g., "minimum 4×4 px," "must be square," or whatever the chosen convention requires).
+  3. Degradation behavior on non-square / mid-tier-mode atlases (does sub-region anchoring still apply when slot 1 is authored? what's the contract?).
+  4. The same anchoring math used in TWO/THREE/FOUR mode synthesis where slot 0 still feeds the missing archetypes.
+  - Plan-phase failure mode to guard against: inventing a convention without verification. Mitigation: the plan-checker reviews the anchoring decision against `_synthesize_strip` task specs.
 
-### Dispatcher — `needs_diagonal_overlay` virtual + lazy overlay skip
+- **D-70: PENTA-SYNTH-06 polygon transform math is a HARD plan-phase gate.** D-49 (FIRST SUPERSESSION) commits to copying source-tile collision/occlusion/navigation polygons (`Vector2[]`) to synthesized tiles with appropriate transforms. The math is undefined. **Plan-phase MUST specify** before Wave 2 generates tasks:
+  1. Polygon vertex transformation formulas under each `TRANSFORM_FLIP_H` / `FLIP_V` / `TRANSPOSE` flag (and combinations) — `Transform2D` or per-vertex math, with the local-origin convention pinned (tile-center vs tile-top-left).
+  2. Sub-region polygon clipping approach for ONE/TWO/THREE modes where the synthesized tile uses only PART of slot 0's polygon area. Sutherland-Hodgman is the standard algorithm; alternatives (axis-aligned-rect intersection only, since sub-regions are rectangular) may be cheaper.
+  3. Edge cases: a polygon that crosses the sub-region boundary; a polygon that lies entirely outside the sub-region (drop it); occlusion polygons with `polygon_index` > 0 (multiple polygons per tile); navigation polygons with hole loops.
+  4. What is NOT copied (locked): animation frames, custom data layers, probability weights, Y-sort origin (PENTA-SYNTH-06 documents this as a layout-choice tradeoff).
 
-- **D-33: Add `func needs_diagonal_overlay() -> bool` virtual on `PentaTileLayout` base, default `false`.** Documents the dispatcher contract: a layout that returns `true` requires the `_overlay_layer` child node. A layout that returns `false` MUST NOT set `diagonal_complement_atlas_coords` on any slot (paired contract — the overlay sentinel and this virtual are co-locked). Phase 1's `PentaTileLayoutPentaHorizontal` (the 4-tile) overrides to return `true`; `PentaTileLayoutPentaVertical` inherits `true` from its parent unchanged. All Phase-2/3/3.5 layouts (DualGrid16, Wang2Edge, Wang2Corner, Min3x3, Penta5H, Penta5V, plus all Phase-3 TBT-decoded layouts and Phase-3.5 PixelLab layouts) inherit `false` from the base.
-- **D-34: `_ensure_visual_layers` lazy-creates `_overlay_layer` only when the active layout returns `needs_diagonal_overlay() == true`.** When `false`, `_overlay_layer` stays `null`; one less child Node + TileMapLayer per scene using a non-Penta4 layout. Layout swap mid-runtime: re-evaluate on each `_resolve_layout()` call → if a previously-non-overlay layout swaps to a Penta4 layout, `_ensure_visual_layers` is the egress that creates the overlay. The reverse swap (overlay → no overlay) is allowed to leak the existing layer node (`free_overlay_layer()` is not in scope; layer swap is a low-frequency edit-time operation, not hot-path).
-- **D-35: `_paint_via_layout` reads `_overlay_layer != null` before attempting overlay paint.** Defense-in-depth: even if a layout incorrectly returns `false` from `needs_diagonal_overlay()` while still setting `diagonal_complement_atlas_coords`, the dispatcher silently no-ops the overlay paint instead of crashing. Such a layout is malformed and `update_configuration_warnings()` should flag it (planner's call on the warning text).
+### Documentation drift fix
 
-### Atlas shape, templates, fallback TileSets
+- **D-71: Phase 1 directory name drift acknowledged and routed.** The actual on-disk directory is `.planning/phases/01-contract-skeleton-tetra-layouts/`. References in `REQUIREMENTS.md` (LAYER-05), `ROADMAP.md`, and `PROJECT.md` to `01-contract-skeleton-penta-layouts/` are stale — Phase 1.1's PentaTile rename swept source code + saved resources + most docs but left phase directory names untouched. This CONTEXT.md (canonical_refs section below) authors against the **actual** path. The cross-doc drift is captured as a deferred cleanup item (out of Phase 2 scope per the breaking-changes-but-no-cleanup-bloat heuristic; can be addressed in any future docs sweep). Downstream agents reading this CONTEXT.md should NOT trust the `penta-layouts/` paths in REQUIREMENTS.md / ROADMAP.md / PROJECT.md without first checking that the actual directory is named `tetra-layouts/`.
 
-- **D-36: Penta5Horizontal atlas = 5×1 strip; Penta5Vertical atlas = 1×5 strip.** Slot order: `[Fill, InnerCorner, Border, OuterCorner, OppositeCorners]`. The first 4 slots reuse the existing `Tetra*` archetype indices (Fill=0 / InnerCorner=1 / Border=2 / OuterCorner=3 — verbatim from Phase 1's `PentaTileLayoutPentaHorizontal` constants); OppositeCorners = 4. This means a v0.1-style Tetra atlas can be extended in-place by adding one more slot — no slot-index renumbering, drop-in compatible.
-- **D-37: Generate templates `tetra_5_horizontal.png` (80×16 px) and `tetra_5_vertical.png` (16×80 px) via `_generate_greybox_templates.py`.** Add `gen_tetra_5_horizontal()` and `gen_tetra_5_vertical()` functions reusing the existing `draw_corner_mask` helper. 5th-slot greybox = mask 9 silhouette (TL+BR — "\\" diagonal). Updates the script's `outputs` dict and the templates/README.md "Shipped Templates" section.
-- **D-38: Bundle `tetra_5_horizontal_fallback.tres` + `tetra_5_vertical_fallback.tres` TileSets.** Each is a `TileSet` `.tres` referencing the matching template PNG with 5 slots configured. Used by Phase 4's PREVIEW-03 fallback routing once `tile_set == null`. Naming follows the bundled pattern from Phase 1's `default_horizontal.tres` / `default_vertical.tres`.
-- **D-39: Penta5Horizontal class extends Penta4Horizontal; Penta5Vertical extends Penta5Horizontal (axis-swap pattern).** Mirrors the Phase 1 D-16 inheritance: `PentaTileLayoutPentaVertical` extends `PentaTileLayoutPentaHorizontal` and overrides ONLY `_make_slot` (the atlas-axis-swap helper). For Penta5: `PentaTileLayoutPenta5Horizontal` extends `PentaTileLayoutPentaHorizontal`, adds the OppositeCorners constant, overrides `mask_to_atlas` for ONLY cases 6 and 9 (delegates to `super.mask_to_atlas(mask)` for the other 14), and overrides `needs_diagonal_overlay()` to return `false`. `PentaTileLayoutPenta5Vertical` extends Penta5Horizontal (NOT PentaVertical) and overrides ONLY `_make_slot` for the y-axis. LOC budget: ~30 LOC for Penta5H + ~10 LOC for Penta5V.
+### Architectural decisions (locked elsewhere — pointers only)
 
-### Inspector validation
+The locked architecture is in the supersession trail. This section maps each requirement family to its source decision so plan-phase doesn't have to scan four supersession blocks.
 
-- **D-43: Add `update_configuration_warnings()` check for malformed Penta5 atlases (surfaced by the Excalibur.js comparison; jyoung4242/dual-grid-auto-tiling demonstrates the same authoring pitfall in their published 6-tile spritesheet, which PentaTile can warn about at edit-time instead).** Re-uses Phase 1's existing warning infrastructure (D-15). The check fires on `PentaTileLayoutPenta5Horizontal` (inherited unchanged by `Penta5Vertical`) and flags two failure modes:
-  1. **Empty OppositeCorners slot** — slot index 4 in the active atlas (the 5×1 horizontal x=4, or 1×5 vertical y=4) is fully transparent or identical to slot 0 (Fill). Warning text suggestion: *"Penta5 atlas: slot 4 (OppositeCorners) appears empty or identical to slot 0 (Fill). Paint a distinct OppositeCorners tile to handle the disconnected-diagonal mask cases (mask 6 = TR+BL, mask 9 = TL+BR). Without it, painted scenes will render mask 6 / 9 cells as plain fill."*
-  2. **OppositeCorners identical to a transformed OuterCorner** (broader heuristic, optional) — the OppositeCorners slot's pixels match slot 3 (OuterCorner) under any of the 4 rotations or 4 flips. Likely a regression from copying v0.1's overlay-composed reference unchanged; warning text suggestion: *"Penta5 atlas: slot 4 (OppositeCorners) appears identical to a transformed slot 3 (OuterCorner). Penta5 expects a hand-authored 'opposite corners' diagonal — if you intended v0.1-equivalent visuals, this is correct; otherwise verify the OppositeCorners pixels are distinct."*
-  Scope: Penta5 only. Other layouts in v0.2 can grow their own validations in their respective phases (Phase 3 TBT layouts and Phase 3.5 PixelLab layouts each have their own characteristic mistakes — out of Phase 2 scope). Pixel-comparison strategy is Claude's discretion (image-hash equality is sufficient; per-quadrant centroid sampling is a richer alternative; planner picks the cheapest correct option).
-
-### Documentation + roadmap updates (planner prerequisites)
-
-- **D-40: REQUIREMENTS.md — add new TETRA5-* requirement IDs as part of Phase 2 planning.** Suggested:
-  - `TETRA5-01`: `PentaTileLayoutPenta5Horizontal` + `PentaTileLayoutPenta5Vertical` subclasses; OppositeCorners archetype = atlas slot 4 in horizontal, slot (0,4) in vertical.
-  - `TETRA5-02`: 5-tile dual-grid output bit-identical to v0.1 (and Phase 1) Penta4 output for all 16 mask states when the 5th tile is painted to match the v0.1 overlay-composed pixels.
-  - `TETRA5-03`: `needs_diagonal_overlay() -> bool` virtual on base; `_ensure_visual_layers` lazy-skips overlay layer creation when `false`. Verified by counting child TileMapLayer nodes after assigning each layout (Penta4 = 2 children, all others = 1 child).
-  - `TETRA5-04`: `tetra_5_horizontal.png` and `tetra_5_vertical.png` templates produced by `_generate_greybox_templates.py` (extends `TEMPLATE-03`'s scope).
-  - `TETRA5-05`: Bundled `tetra_5_horizontal_fallback.tres` + `tetra_5_vertical_fallback.tres` fallback TileSets (extends `PREVIEW-02`'s scope).
-- **D-41: ROADMAP.md Phase 2 success criteria expanded.** Add new criterion: "Painting a Penta5Horizontal atlas with the 5th OppositeCorners tile authored produces visually correct mask-6 and mask-9 cells using a single TileMapLayer (no `_overlay_layer` child node created)." Existing criteria stay as-is. Phase 2 plan count goes from `TBD` to `~6` (one plan per layout family, plus the dispatcher refactor as its own wave).
-- **D-42: Update `addons/penta_tile/templates/README.md` "Shipped Templates" section** to list `tetra_5_horizontal.png` (5×1, 80×16 px) and `tetra_5_vertical.png` (1×5, 16×80 px). Mention the OppositeCorners archetype + Excalibur.js attribution. Land this update in the same plan as the template generation. Root README + CHANGELOG updates wait for Phase 5 (per existing roadmap split).
-- **D-44: Marching Squares ↔ Wang2Edge cross-reference in user-facing docs.** "Marching Squares" is the algorithm name; "Wang 2-Edge" is the tile-classification name. Same 16-tile 4-bit N/E/S/W edge atlas. Land the cross-reference in two places:
-  1. **`addons/penta_tile/templates/README.md` "Mask Conventions" → Edge masks subsection**: append a single line beneath the existing edge-mask diagram: *"This is the same algorithm as 'Marching Squares' (4-bit N/E/S/W cardinal mask, 16 tiles) — same atlas, different vocabulary. Use `PentaTileLayoutWang2Edge` for both."*
-  2. **`PentaTileLayoutWang2Edge`'s class-level `##` doc-comment AND `description` field**: cross-reference the algorithm name verbatim — *"16-tile 4-bit edge mask (CR31 N=1/E=2/S=4/W=8). Also known as 'Marching Squares' in algorithm-centric writeups (e.g., the Excalibur.js dual-grid article); same atlas, different vocabulary."*
-  Lands in the same Wave as the Wang2Edge subclass implementation (no separate plan). Helps users arriving via marching-squares search terms find the right layout. Root README's "Supported Layouts" section gets the same cross-reference but as a Phase 5 docs deliverable (per the existing Phase 2/Phase 5 docs split — D-42).
-- **D-45: Phase 5 README "Implementation Notes" expansion — half-tile offset rationale.** The dual-grid half-tile offset (`_visual_layer_offset()` returns `Vector2(tile_size) * -0.5` for `is_dual_grid()=true` layouts; see `penta_tile_map_layer.gd:256-262`) is documented in `.planning/research/ARCHITECTURE.md` and `.planning/codebase/ARCHITECTURE.md` but NOT in the user-facing README. The Excalibur.js dual-grid article frames this clearly: *"the offset eliminates the ambiguous-tile problem"* (where a single tile visually shows one terrain but gameplay logic says another, breaking collision/walkability decisions). Phase 5's `DOC-01` README work should add a paragraph to the existing "Implementation Notes" section citing this rationale, with a link to the Excalibur article (already in External Resources per the README update of 2026-04-26). This is a Phase 5 deliverable — flagged here in Phase 2's CONTEXT so the planner reading Phase 5 plans inherits the breadcrumb. Phase 2 makes no README change for this item; the implementation in `penta_tile_map_layer.gd` is unchanged.
+| Requirement family | Locked at | Summary |
+|---|---|---|
+| LAYER-01 (`layout: PentaTileLayout` direct) | THIRD SUPERSESSION D-56 | No `PentaTileAtlasContract` wrapper |
+| LAYER-02 (`_resolve_slot` reads `self.layout`) | THIRD SUPERSESSION D-56 | + delete `_DEFAULT_LAYOUT` singleton |
+| LAYER-03 (file/folder deletions) | THIRD SUPERSESSION D-56, D-59; FOURTH D-66 | Contracts folder + atlas-contract `.gd` + v0.1 PNG + templates folder all deleted |
+| LAYER-04 (demo scene rebind) | Wave 2 acceptance criterion (this round D-68) | Atomic with contract deletion |
+| LAYER-05 (Phase 1 verification migration) | Wave 1 pre-work (this round D-68) | New tests added for TWO/THREE/AUTO_STRIP |
+| LAYOUT-03 (`bitmask_template` rename) | THIRD SUPERSESSION D-59 | Single user-facing image; `decoder_image` deleted; `fallback_tile_set` hidden |
+| LAYOUT-04 (`AtlasSlot` field deletion) | FIRST SUPERSESSION D-51 | `diagonal_complement_atlas_coords` deleted |
+| LAYOUT-06 (`get_fallback_tile_set()` virtual) | THIRD SUPERSESSION D-59 | Default impl builds TileSet from `bitmask_template` at first call |
+| LAYOUT-07 (co-located PNGs) | FOURTH SUPERSESSION D-66 | Tetra subfolder; flat siblings for single-variant |
+| NATIVE-01..03, MIN3x3-01 | Carried forward unchanged | 4 single-variant layouts |
+| PENTA-01 (merged class with `axis` enum) | THIRD SUPERSESSION D-57 | `PentaTileLayoutPenta` |
+| PENTA-02 (`tile_count` enum) | FOURTH SUPERSESSION D-61, D-64 | 5 modes × 2 detection variants |
+| PENTA-03 (visual regression vs captured baseline) | FOURTH SUPERSESSION D-67 | Baseline is fresh capture (slot ordering changed; NOT v0.1 bit-equivalence) |
+| PENTA-SYNTH-01 (`tile_count` enum members) | FOURTH SUPERSESSION D-61 | `AUTO=0, AUTO_STRIP, ONE=1, TWO=2, THREE=3, FOUR=4, FIVE=5` |
+| PENTA-SYNTH-02 (AUTO detect) | SECOND SUPERSESSION D-53; FOURTH D-61 | Dimension-only; uniform across strips |
+| PENTA-SYNTH-03 (AUTO_STRIP detect) | FOURTH SUPERSESSION D-64 | Per-strip via `has_tile()` |
+| PENTA-SYNTH-04 (no pixel inspection) | SECOND SUPERSESSION D-55 | Dimension-based only |
+| PENTA-SYNTH-05 (sub-region anchoring) | **OPEN — this round D-69** | Plan-phase gate |
+| PENTA-SYNTH-06 (polygons + what's not copied) | FIRST SUPERSESSION D-49 + **this round D-70** | Polygon math is plan-phase gate |
+| PENTA-SYNTH-07 (overlay deletion) | FIRST SUPERSESSION D-51 | `_overlay_layer` + companions all gone |
+| PENTA-SYNTH-08 (warnings) | FOURTH SUPERSESSION (warnings text per D-67) | Atlas axis 0/6+, explicit mismatch, AUTO_STRIP gaps |
+| PENTA-SYNTH-09 (`_validate_property` hide) | THIRD SUPERSESSION D-60 | Class-level constant lookup table |
+| PENTA-SYNTH-10 (single PNG per layout) | FOURTH SUPERSESSION D-65 | Bitmask AND fallback source |
+| PENTA-SYNTH-11 (demo across modes) | FOURTH SUPERSESSION D-66 (Wave 6 in this round D-68) | ONE/FOUR/FIVE minimum |
+| PENTA-SYNTH-12 (FOUR-mode baseline) | FOURTH SUPERSESSION D-67 | Captured baseline; protocol per REQUIREMENTS.md |
+| PREVIEW-01 (`bitmask_template` inline) | THIRD SUPERSESSION D-59 | Free via Godot's `Texture2D` preview |
+| PREVIEW-02 (`get_fallback_tile_set()` codegen) | THIRD SUPERSESSION D-59 | No `.tres` fallback files |
+| TEMPLATE-01 (PNG locations) | FOURTH SUPERSESSION D-66 | `layouts/` folder; `templates/` deleted |
+| TEMPLATE-03 (generator script) | FOURTH SUPERSESSION D-66 | Renamed; produces new structure |
+| TEMPLATE-04 (slot positions match `mask_to_atlas`) | Carried forward | Visual regression of fallback output |
 
 ### Claude's Discretion
 
-- **Exact `transform_flags` value for mask 6 vs mask 9 in Penta5.** Convention is mask 9 = `_ROTATE_0` (canonical paint); mask 6 = mirror. Planner picks between `_ROTATE_90`, `TRANSFORM_FLIP_H`, or `TRANSFORM_FLIP_V` based on visual symmetry of the OppositeCorners sprite (a slash-diagonal vs anti-slash-diagonal pixel pattern).
-- **File naming convention for the new layout files.** `penta_tile_layout_tetra5_horizontal.gd` vs `penta_tile_layout_tetra_5_horizontal.gd`. Planner picks consistent with existing snake_case-class-name match (`penta_tile_layout_tetra_horizontal.gd` precedent suggests `penta_tile_layout_tetra_5_horizontal.gd`).
-- **Whether `_OPPOSITE_CORNERS` constant lives on Penta5Horizontal or on a shared base.** Defaults to Penta5Horizontal (matches Phase 1's pattern of putting layout-specific constants on the layout). Penta5Vertical inherits via `super`.
-- **`update_configuration_warnings()` text for the `needs_diagonal_overlay() == false` + non-sentinel `diagonal_complement_atlas_coords` malformed case.** Free-form, as long as it names the contract violation.
-- **Plan wave breakdown.** Suggested: Wave 1 = dispatcher refactor (`needs_diagonal_overlay` virtual + `_ensure_visual_layers` lazy skip). Wave 2 = the 4 originally-planned native layouts (DualGrid16 / Wang2Edge / Wang2Corner / Min3x3) in parallel. Wave 3 = Penta5H + Penta5V + new templates + fallback TileSets. Wave 4 = visual regression + LOC checkpoint. Planner free to recompose.
+The user explicitly waved off the four-concerns deep-dive with *"only discuss things you deam critical or invalid or a potential issue."* Items NOT escalated this round and left to Claude/planner discretion:
+
+- **Wave breakdown size.** The user accepted the 7-wave plan from D-68 without revision. Plan-phase may refine wave decomposition or sub-task ordering as long as the dependency invariants hold (Wave 1 pre-work → Wave 2 synthesis machinery → Wave 3 merge → Wave 4 native layouts in parallel → Wave 5 asset relocation → Wave 6 detection + baseline + demo → Wave 7 closeout). Don't split Phase 2 into 2.0/2.5 retroactively without re-discussion.
+- **Phase 1 verification migration test count.** Wave 1 starts from 26 tests; new tests for TWO/THREE/FIVE modes + AUTO_STRIP grow that count. Final number is plan-phase's call.
+- **Exact `update_configuration_warnings()` text** for the three failure modes in PENTA-SYNTH-08 (atlas axis 0/6+, explicit-mode mismatch, AUTO_STRIP gaps) — wording is plan-phase's call provided each failure mode is named clearly.
+- **`_synthesize_strip` internal API** (helper function signature, return type, caching strategy when source `tile_set` changes) — plan-phase picks; constraint is that synthesis is deterministic and re-runs only when `layout`, `axis`, `tile_count`, or source `tile_set` changes (PENTA-SYNTH-06).
+- **Pixel-hash baseline storage strategy for PENTA-SYNTH-12** — REQUIREMENTS.md offers two options (`Image.get_data().hash()` int OR `Image.save_png()` baseline file). Plan-phase picks; int hash is cheaper and stricter, PNG baseline is friendlier for visual debugging.
+- **File/class naming for the merged Penta layout file.** Per existing convention: `addons/penta_tile/layouts/penta_tile_layout_penta.gd` → `class_name PentaTileLayoutPenta`. The Phase 1 files (`penta_tile_layout_penta_horizontal.gd` / `_vertical.gd`) and their classes are deleted in Wave 3.
+- **Generator script rename target.** `_generate_greybox_templates.py` → some new name reflecting "bitmask templates" rather than "greybox templates" (e.g., `_generate_bitmask_templates.py`). Plan-phase picks; constraint is that the script lives somewhere that can produce all 14 PNGs from data definitions.
 
 </decisions>
 
 <canonical_refs>
 ## Canonical References
 
-**Downstream agents MUST read these before planning or implementing.**
+**Downstream agents (researcher, planner, executor) MUST read these before planning or implementing.**
+
+> ⚠ **Doc drift notice.** The actual Phase 1 directory on disk is `.planning/phases/01-contract-skeleton-tetra-layouts/`. References in `REQUIREMENTS.md`, `ROADMAP.md`, and `PROJECT.md` to `01-contract-skeleton-penta-layouts/` are stale (Phase 1.1 rename did not sweep phase directory names). The paths below use the **actual** directory name. See D-71 for the deferred cleanup.
 
 ### Project + roadmap
 
-- `.planning/PROJECT.md` — milestone scope, identity guardrails, Out-of-Scope list, Key Decisions table
-- `.planning/REQUIREMENTS.md` — v1 requirements; Phase 2 owns NATIVE-01..03, MIN3x3-01, PREVIEW-02 (partial), TEMPLATE-04 (partial). New TETRA5-01..05 to be added by planner per D-40
-- `.planning/ROADMAP.md` — phase breakdown; Phase 2 success criteria to be expanded per D-41
-- `.planning/STATE.md` — current position; Phase 1 complete, Phase 2 ready to plan
+- `.planning/PROJECT.md` — milestone scope, identity guardrails ("PentaTile must remain visibly smaller and simpler than TileMapDual"), Out-of-Scope list, Key Decisions table
+- `.planning/REQUIREMENTS.md` — v1 requirements; Phase 2 owns LAYER-01..05, LAYOUT-03/04/06/07, NATIVE-01..03, MIN3x3-01, PENTA-01..03, PENTA-SYNTH-01..12, PREVIEW-01/02, TEMPLATE-01/03/04 (30 reqs total)
+- `.planning/ROADMAP.md` — phase breakdown; Phase 2 success criteria 1..17 are authoritative for the merge gate
+- `.planning/STATE.md` — current position; Phase 1 + 1.1 complete, Phase 2 ready to plan
 
-### Phase 1 carry-forward
+### LOAD-BEARING — supersession trail (the architecture lives here)
 
-- `.planning/phases/01-contract-skeleton-penta-layouts/01-CONTEXT.md` — Phase 1 decisions (D-01..D-27) that anchor Phase 2's architecture
-- `.planning/phases/01-contract-skeleton-penta-layouts/01-PATTERNS.md` — naming/inheritance patterns; the axis-swap inheritance pattern (D-39 reuses it)
-- `.planning/phases/01-contract-skeleton-penta-layouts/01-VERIFICATION.md` — Phase 1 verification artifact; the 26/26 test results that establish the baseline Penta4 visuals are bit-identical to v0.1
+- `.planning/phases/02-native-layouts/02-DISCUSSION-LOG.md` — **REQUIRED READING.** Records the four supersession rounds (D-47..D-67) that locked the architecture, plus the fifth supersession round (this re-discussion) at the bottom. Plan-phase, researcher, and executor agents MUST read the FIRST/SECOND/THIRD/FOURTH SUPERSESSION sections to understand WHY each decision is what it is. Skipping the log will cause agents to re-litigate decisions that took 4 iterations to lock.
 
-### Research — architecture + design
+### Phase 1 carry-forward (note: actual directory is `tetra-layouts/`, not `penta-layouts/` per D-71)
 
-- `.planning/research/ARCHITECTURE.md` — `_resolve_slot` design, lazy layer pattern, overlay-layer purpose (D-33/34 lazy-skip extends this)
-- `.planning/research/PITFALLS.md` — alternative_tile bit packing (§1), Resource property renames (§3), setter loops (§4), overlay-layer cleanup behavior (§7)
-- `.planning/research/STACK.md` — Godot 4.6 stack details; `TRANSFORM_FLIP_*` flag values that drive D-31's transform choice
+- `.planning/phases/01-contract-skeleton-tetra-layouts/01-CONTEXT.md` — Phase 1 decisions (D-01..D-27); the axis-swap inheritance pattern (D-16) does NOT carry forward (Phase 2 merges H/V into one class)
+- `.planning/phases/01-contract-skeleton-tetra-layouts/01-VERIFICATION.md` — 26 tests against the deleted API surface; Wave 1 migrates these (LAYER-05). Marked HISTORICAL after Wave 1 completes.
+- `.planning/phases/01-contract-skeleton-tetra-layouts/01-PATTERNS.md` — naming/inheritance patterns from Phase 1; the snake_case-file-matches-class-name convention still applies, but the H/V-axis-swap inheritance pattern is superseded by the merged class with `axis` enum
 
-### Research — layouts (the v0.2-specific body)
+### Research (architecture + design)
 
-- `.planning/research/layouts/MASK_UNIFICATION.md` — load-bearing: polymorphic Resource selection, code shape; D-33's virtual fits within this architecture
+- `.planning/research/ARCHITECTURE.md` — `_resolve_slot` design; the overlay-layer rationale (now obsolete per FIRST SUPERSESSION D-51, but useful for understanding what's being deleted)
+- `.planning/research/PITFALLS.md` — alternative_tile bit packing (§1), variation determinism (§2; not relevant in Phase 2 — variation is v2), Resource property renames (§3 — read for Wave 1 LAYOUT-03 rename), setter loops + `Resource.changed` storms (§4 — read for LAYER-01 setter), `TileMapLayer.visible = false` cleanup (§7 — already mitigated, don't regress)
+- `.planning/research/STACK.md` — Godot 4.6 stack; `TRANSFORM_FLIP_*` flag values that drive transform math in synthesis
+- `.planning/research/layouts/MASK_UNIFICATION.md` — load-bearing: polymorphic Resource selection, code shape; the synthesis approach in Phase 2 fits this architecture
+- `.planning/research/layouts/RPG_MAKER.md` — deferred RPG Maker family (v0.3+); reference for what's NOT in Phase 2 scope
 - `.planning/research/layouts/TAXONOMY.md` — 24-layout catalogue
-- `.planning/research/layouts/COMPARISON.md` — artist-facing layout comparison reference
+- `.planning/research/layouts/COMPARISON.md` — artist-facing layout comparison
 - `.planning/research/layouts/EDITORS.md` — Tilesetter / Tiled / LDtk / Unity / RPG Maker conventions
-- `.planning/research/layouts/TEMPLATE_CONVENTIONS.md` — prior-art synthesis (dandeliondino + Better Terrain + Godot stock); decoder design rationale
-- `.planning/research/layouts/TILEBITTOOLS.md` — TBT addon audit + slot tables (Phase 3, but referenced for slot-table authoring discipline)
+- `.planning/research/layouts/TEMPLATE_CONVENTIONS.md` — prior-art synthesis (dandeliondino + Better Terrain + Godot stock)
+- `.planning/research/layouts/TILEBITTOOLS.md` — TBT addon audit + slot tables (relevant for Phase 3, but referenced for slot-table authoring discipline)
 - `.planning/research/layouts/TILESETTER_AND_GODOT.md` — Tilesetter live-doc audit; "merging points" terminology contrast with Excalibur.js's "Opposite Corners"
 
-### External references (community vocabulary)
+### External references (community vocabulary; preserved from D-32 / D-44 / D-45 / D-46 in the old CONTEXT.md)
 
-- Excalibur.js dual-grid article — https://excaliburjs.com/blog/Dual%20Tilemap%20Autotiling%20Technique/ — codifies the 5-archetype dual-grid set: `Filled / Edge / InnerCorner / OuterCorner / OppositeCorners`. Source for D-30's archetype name.
-- BorisTheBrave "Classification of Tilesets" — https://www.boristhebrave.com/2021/11/14/classification-of-tilesets/ — tileset taxonomy reference (cross-checked but doesn't name individual archetypes)
-- BorisTheBrave "Quarter-Tile Autotiling" — https://www.boristhebrave.com/2023/05/31/quarter-tile-autotiling/ — confirms the 5-tile rotation set ("only 5 quarter-tiles needed for the entire tileset" if tiles rotate)
+- Excalibur.js dual-grid article — https://excaliburjs.com/blog/Dual%20Tilemap%20Autotiling%20Technique/ — codifies the 5-archetype dual-grid set (`Filled / Edge / InnerCorner / OuterCorner / OppositeCorners`). PentaTile uses `Border` for what Excalibur calls `Edge` (the project's pre-existing archetype name). PentaTile's canonical paint anchors mask 9 (TL+BR) as `_ROTATE_0`; Excalibur's `calculateMeshSprite()` uses the opposite anchor (mask 6 = TR+BL). Both conventions are valid; document the divergence in `PentaTileLayoutPenta`'s class-level `##` doc-comment.
+- Excalibur.js half-tile-offset rationale — Phase 5 README "Implementation Notes" expansion (the offset eliminates the ambiguous-tile problem). Phase 2 makes no README change for this; flagged as a Phase 5 deliverable.
+- BorisTheBrave "Classification of Tilesets" — https://www.boristhebrave.com/2021/11/14/classification-of-tilesets/ — tileset taxonomy reference
+- BorisTheBrave "Quarter-Tile Autotiling" — https://www.boristhebrave.com/2023/05/31/quarter-tile-autotiling/ — confirms the 5-tile rotation set
 
 ### Codebase maps
 
-- `.planning/codebase/ARCHITECTURE.md` — overall system architecture; v0.1's overlay-layer rationale (D-33/34 lazy-skip preserves the original semantics for Penta4 layouts)
-- `.planning/codebase/CONCERNS.md` — known concerns; flags "Dual-layer composition for diagonals doubles tile ops for those masks" — D-31 directly addresses this for Penta5
-- `.planning/codebase/CONVENTIONS.md` — naming, file layout, GDScript style (snake_case file names match class names per existing `penta_tile_layout_*.gd` convention)
+- `.planning/codebase/ARCHITECTURE.md` — overall system architecture; v0.1's overlay-layer rationale (deleted in Phase 2 — read for what's being removed)
+- `.planning/codebase/CONCERNS.md` — known concerns; "Dual-layer composition for diagonals doubles tile ops" is now resolved by overlay-layer deletion
+- `.planning/codebase/CONVENTIONS.md` — naming, file layout, GDScript style
 - `.planning/codebase/INTEGRATIONS.md` — Godot integration points
 - `.planning/codebase/STACK.md` — language/version specifics
 - `.planning/codebase/STRUCTURE.md` — file/directory structure
 - `.planning/codebase/TESTING.md` — testing approach (visual regression on demo)
 
-### v0.1+Phase 1 source + assets (the canonical Penta4 reference)
+### v0.1 + Phase 1 source (the surface being modified)
 
-- `addons/penta_tile/penta_tile_map_layer.gd` (~298 LOC) — `_ensure_visual_layers` (lines 212-229), `_paint_via_layout` (lines 146-158), `_paint_overlay_for_slot` (lines 177-181) — these three functions get the lazy-skip refactor
-- `addons/penta_tile/layouts/penta_tile_layout.gd` — base; D-33 adds `needs_diagonal_overlay()` virtual here
-- `addons/penta_tile/layouts/penta_tile_layout_tetra_horizontal.gd` — Phase 1 4-tile reference; Penta5Horizontal extends this
-- `addons/penta_tile/layouts/penta_tile_layout_tetra_vertical.gd` — Phase 1 axis-swap reference; Penta5Vertical follows the same axis-swap pattern but parents on Penta5Horizontal
-- `addons/penta_tile/templates/_generate_greybox_templates.py` — extend with `gen_tetra_5_horizontal()` + `gen_tetra_5_vertical()`
-- `addons/penta_tile/templates/{tetra_horizontal,tetra_vertical,dual_grid_16,wang_2corner,wang_2edge}.png` — 5 shipped greyboxes; Penta5 templates added alongside
-- `addons/penta_tile/templates/README.md` — artist-facing template spec; D-42 updates the "Shipped Templates" section
+- `addons/penta_tile/penta_tile_map_layer.gd` (~298 LOC) — the layer file. Deletes in Wave 2: `_OVERLAY_LAYER_NAME` constant (line 7), `_overlay_layer` field (line 46), `_DEFAULT_LAYOUT` static singleton (lines 55-58, 193-198), `_paint_overlay_for_slot` (lines 177-181). Renames in Wave 2: `atlas_contract` property (line 14) → `layout`. Modifies in Wave 2: `_ensure_visual_layers` (212-217 — drop overlay branch), `_paint_via_layout` (146-158 — drop overlay paint call), `_clear_visual_layers` (266-269 — drop overlay layer iteration), `_sync_visual_layers` (236-250 — drop overlay layer iteration), `_resolve_layout` (193-198 — read `self.layout` directly), `_on_contract_changed` (297-298 — rename to `_on_layout_changed`).
+- `addons/penta_tile/penta_tile_atlas_contract.gd` (~52 LOC) — DELETED in Wave 2.
+- `addons/penta_tile/penta_tile_atlas_slot.gd` (~30 LOC) — modified in Wave 2: drop `diagonal_complement_atlas_coords` field (LAYOUT-04).
+- `addons/penta_tile/layouts/penta_tile_layout.gd` — modified in Wave 1: rename `template_image` → `bitmask_template` (LOAYUT-03); remove `fallback_tile_set` @export (LAYOUT-03); add `get_fallback_tile_set()` virtual stub (LAYOUT-06); delete `decoder_image`. Filled in Wave 2 with the default `get_fallback_tile_set()` implementation that builds a TileSet from `bitmask_template`.
+- `addons/penta_tile/layouts/penta_tile_layout_penta_horizontal.gd` (~133 LOC) — DELETED in Wave 3 (merged into new `penta_tile_layout_penta.gd`).
+- `addons/penta_tile/layouts/penta_tile_layout_penta_vertical.gd` (~40 LOC) — DELETED in Wave 3.
+- `addons/penta_tile/contracts/` — entire folder DELETED in Wave 2 (4 `.tres` files: `default_horizontal.tres`, `default_vertical.tres`, `penta_horizontal_default.tres`, `penta_vertical_default.tres`).
+- `addons/penta_tile/penta_tile_template.png` (the v0.1 reference at addon root) — DELETED in Wave 2.
+- `addons/penta_tile/templates/` — entire folder DELETED in Wave 5 (5 PNGs migrate to new co-located paths under `addons/penta_tile/layouts/`; the generator script + README.md are renamed/relocated as part of the migration).
+- `addons/penta_tile/demo/penta_tile_demo.tscn` — modified in Wave 2: replace `[ext_resource ... contracts/default_horizontal.tres]` with the new `layout` ExtResource (LAYER-04). Atomic with contract deletion; non-skippable.
 
 </canonical_refs>
 
@@ -155,128 +207,131 @@ Decision IDs continue from Phase 1 (Phase 1 ended at D-27).
 
 ### Reusable assets (Phase 1 already shipped)
 
-- **`PentaTileLayoutPentaHorizontal.mask_to_atlas`** (16-state match table at lines 50-94) — `Penta5Horizontal` overrides ONLY cases 6 and 9; the other 14 cases delegate via `super.mask_to_atlas(mask)`. Roughly ~25 LOC for the override class.
-- **`PentaTileLayoutPentaHorizontal._make_slot`** + the axis-swap pattern in `PentaTileLayoutPentaVertical._make_slot` — `Penta5Vertical` reuses the same pattern (override ONLY `_make_slot`). ~10 LOC.
-- **`PentaTileMapLayer._ensure_visual_layers`** — current always-creates-both pattern. The lazy-skip refactor reads `layout.needs_diagonal_overlay()` and conditionally creates `_overlay_layer`. Net diff: ~6 LOC.
-- **`_generate_greybox_templates.py`'s `draw_corner_mask`** helper — fills a slot's quadrants per a 4-bit corner mask. Reused for the 5th slot (silhouette = mask 9 = TL+BR).
-- **`_pack_alternative(alt_id, transform_flags)`** helper on PentaTileLayout base (Phase 1 D-04) — Penta5's `_make_slot` for masks 6 and 9 uses pure transform_flags; alt_id stays 0 (no variation in Phase 2).
+- **`PentaTileLayoutPentaHorizontal.mask_to_atlas`** (16-state match) — the case-table is being relocated into `PentaTileLayoutPenta` with the new slot ordering (slot 0 = IsolatedCell, slot 1 = Fill, slot 2 = Border, slot 3 = InnerCorner, slot 4 = OppositeCorners). The 16 cases each remap to the new slot indices; OuterCorner cases now resolve to slot 0 with rotation transforms.
+- **`_pack_alternative(alt_id, transform_flags)`** helper on `PentaTileLayout` base (Phase 1 D-04, LAYOUT-05) — preserved unchanged. All Phase 2 layouts use it for transform packing.
+- **`_make_slot` axis-swap helper pattern** — superseded. The merged `PentaTileLayoutPenta` branches on `self.axis` inside a single `_make_slot` instead of overriding the helper in a subclass.
+- **Idempotence guard + `Resource.changed` hygiene** (Phase 1 D-08, PITFALLS §4) — preserved verbatim on the renamed `layout` setter.
+- **`TileSetAtlasSource.get_atlas_grid_size()` + `has_tile()`** — the sole inputs to AUTO / AUTO_STRIP detection. No pixel content read (PENTA-SYNTH-04, D-55).
 
-### Established patterns (from `01-PATTERNS.md` + Phase 1 source)
+### Established patterns (carry forward)
 
-- **Inheritance pattern (D-16 / Phase 1):** `Vertical` extends `Horizontal` and overrides ONLY the axis helper. Penta5 follows: Penta5H extends PentaH (overrides `mask_to_atlas` cases 6/9 + `needs_diagonal_overlay`); Penta5V extends Penta5H (overrides ONLY `_make_slot`).
-- **Idempotence guard + `Resource.changed` hygiene** (D-08 / Phase 1) — preserved verbatim; Penta5 layouts plug into the same path.
-- **Lazy `_DEFAULT_LAYOUT` singleton** (D-07 / Phase 1) — no change in Phase 2; null-contract still resolves to PentaHorizontal4.
-- **Snake_case file matches class name** (CONVENTIONS.md) — new files: `penta_tile_layout_tetra_5_horizontal.gd`, `penta_tile_layout_tetra_5_vertical.gd`.
+- **Snake_case file matches class name** — applies to all 5 new layout files (`penta_tile_layout_penta.gd`, `penta_tile_layout_dual_grid_16.gd`, `penta_tile_layout_wang_2_edge.gd`, `penta_tile_layout_wang_2_corner.gd`, `penta_tile_layout_minimal_3x3.gd`).
+- **`@tool`-mode safety** — `update_configuration_warnings()` for malformed atlases; `_validate_property` for inspector hiding.
+- **Lazy creation** — `_primary_layer` lazily created in `_ensure_visual_layers`. After overlay deletion, this is the ONLY visual layer, so the helper simplifies considerably.
+- **Single-grid pipeline** — already wired in Phase 1 (D-06; `_mark_affected_single_grid_cells` at line 134). Wang2Edge / Wang2Corner / Min3x3 are its first consumers in Phase 2.
 
 ### Integration points
 
-- **`PentaTileLayout.needs_diagonal_overlay() -> bool`** (NEW virtual on base, default `false`) — read by `PentaTileMapLayer._ensure_visual_layers` to gate `_overlay_layer` creation.
-- **`PentaTileMapLayer._overlay_layer`** (existing field) — now nullable depending on the active layout.
-- **Inspector typed-picker** — new layouts auto-register via `class_name`; the contract's `layout` slot picker shows them alongside Phase 1's PentaH/V.
+- **`PentaTileLayout.get_fallback_tile_set() -> TileSet`** (NEW virtual on base) — read by `PentaTileMapLayer` when `tile_set == null`. Default implementation builds from `bitmask_template`; layouts can override.
+- **`PentaTileMapLayer.layout: PentaTileLayout`** (NEW @export, replaces `atlas_contract`) — typed picker auto-registers all subclasses via `class_name`.
+- **`_synthesize_strip(strip_index, mode)`** (NEW helper on `PentaTileLayoutPenta` or a synthesis utility module) — called from the layout's setup path; outputs a runtime `TileSet` owned by `PentaTileMapLayer._primary_layer`. User's source `tile_set` is never mutated. Re-runs only when `layout`, `axis`, `tile_count`, or source `tile_set` changes (PENTA-SYNTH-06).
 
-### LOC budget
+### LOC budget (estimate; refine in plan-phase)
 
-Phase 2's expected additions, layered on Phase 1's 530-LOC baseline:
+| File | Action | LOC delta |
+|---|---|---|
+| `penta_tile_map_layer.gd` (existing) | Delete overlay code path; rename `atlas_contract` → `layout`; delete `_DEFAULT_LAYOUT` | -50 to -70 |
+| `penta_tile_atlas_contract.gd` | DELETE | -52 |
+| `penta_tile_atlas_slot.gd` (existing) | Drop `diagonal_complement_atlas_coords` | -3 |
+| `penta_tile_layout.gd` (existing) | Rename `template_image`; drop `fallback_tile_set`; add `get_fallback_tile_set()` virtual; drop `decoder_image` | +20 to +30 |
+| `penta_tile_layout_penta_horizontal.gd` + `_vertical.gd` | DELETE | -170 |
+| `penta_tile_layout_penta.gd` (NEW) | Merged class with `axis` + `tile_count` enums + `_validate_property` hide + class-level constant lookup table for 10 PNGs + delegation to `_synthesize_strip` | +200 to +280 |
+| `_synthesize_strip()` machinery (NEW; location TBD) | 5-mode synthesis + collision polygon copy + runtime TileSet construction | +250 to +400 |
+| `penta_tile_layout_dual_grid_16.gd` (NEW) | 16-state corner mask | ~80 |
+| `penta_tile_layout_wang_2_edge.gd` (NEW) | 16-state edge mask, single-grid | ~80 |
+| `penta_tile_layout_wang_2_corner.gd` (NEW) | 16-state corner mask, single-grid | ~80 |
+| `penta_tile_layout_minimal_3x3.gd` (NEW) | 16-state edge mask on 3×3 grid, single-grid | ~60 |
+| Generator script (rename + restructure) | Produce 14 PNGs from data definitions | +50 to +100 |
+| Phase 1 verification migration | Test rewrites + new TWO/THREE/AUTO_STRIP tests | +100 to +200 |
+| **Net add to addon** | | **+700 to +1000 LOC** |
 
-| File | Estimate |
-|---|---|
-| `penta_tile_layout.gd` (existing — add `needs_diagonal_overlay` virtual) | +5 LOC |
-| `penta_tile_map_layer.gd` (existing — lazy overlay layer creation) | +6 LOC |
-| `penta_tile_layout_dual_grid_16.gd` (NEW) | ~80 LOC |
-| `penta_tile_layout_wang_2_edge.gd` (NEW) | ~80 LOC |
-| `penta_tile_layout_wang_2_corner.gd` (NEW) | ~80 LOC |
-| `penta_tile_layout_minimal_3x3.gd` (NEW) | ~60 LOC |
-| `penta_tile_layout_tetra_5_horizontal.gd` (NEW) | ~30 LOC |
-| `penta_tile_layout_tetra_5_vertical.gd` (NEW) | ~10 LOC |
-| `_generate_greybox_templates.py` (existing — add 2 functions) | +30 LOC |
-| **Phase 2 net add** | **~381 LOC** |
-
-Cumulative end-of-Phase-2: ~530 + ~381 = **~911 LOC** of GDScript across `addons/penta_tile/`. Comfortably under TileMapDual's ~700–900 LOC equivalent, but trending close — flagged for the end-of-Phase-3 LOC checkpoint per ROADMAP Identity Guardrails.
+Cumulative end-of-Phase-2 estimate: **~1230-1530 LOC** of GDScript across `addons/penta_tile/`. Trends close to TileMapDual's surface area (~700-900 LOC on its own scripts; full TileMapDual addon larger). **End-of-Phase-2 LOC checkpoint required per ROADMAP identity guardrails.** If the cumulative materially exceeds ~1500, flag for design review (e.g., is `_synthesize_strip` over-spec'd?).
 
 ### Migration / breaking changes
 
-None for Penta5 specifically — this is pure addition. The `needs_diagonal_overlay()` virtual default of `false` is a breaking change for any **third-party** custom layout subclasses authored against the Phase 1 base (they'd silently lose overlay support if their `mask_to_atlas` returns slots with `diagonal_complement_atlas_coords`). Per `PROJECT.md` ("breaking changes accepted with migration notes; pre-1.0"), this is documented in the CHANGELOG (Phase 5) but not gated. No external custom layouts exist as of 2026-04-26 (audience = author's own games, no Asset Library distribution).
+Per the [no-backwards-compat AND no-forward-compat policy](../../../CLAUDE.md#breaking-changes-policy-hard-rule), Phase 2 ships breaking changes freely:
 
-### Regression-suite protection (planner acceptance criterion)
+- `atlas_contract: PentaTileAtlasContract` → `layout: PentaTileLayout` (any saved scene with the old property loses it on first load; demo scene rebound atomically)
+- Slot ordering changed across all Penta atlases (slot 3 was OuterCorner, is now InnerCorner; slot 0 was Fill, is now IsolatedCell). Existing artist atlases authored against v0.1 / Phase 1 conventions WILL render incorrectly.
+- `template_image` → `bitmask_template` rename (per PITFALLS §3, Resource property renames orphan saved scenes silently in Godot 4.6 — but per breaking-changes policy, no `@export_storage` shadow + `__migrate__()` two-step is added; CHANGELOG documents the breakage).
+- `fallback_tile_set` no longer @export'd (any scene that set it loses the override; codegen replaces).
+- `decoder_image` deleted.
+- `PentaTileLayoutPentaHorizontal` + `PentaTileLayoutPentaVertical` classes deleted (third-party scenes referencing those `class_name` symbols break).
+- `_overlay_layer`, `_OVERLAY_LAYER_NAME`, `_paint_overlay_for_slot()`, `AtlasSlot.diagonal_complement_atlas_coords` all deleted (third-party code reading these breaks).
+- All template PNG paths changed (`templates/*.png` → `layouts/penta_tile_layout_penta/*.png` or flat siblings).
 
-**After D-32/D-33/D-34 land, Penta4 (Tetra Horizontal/Vertical) is the ONLY layout in the entire addon that exercises the `_overlay_layer` paint path.** Every other layout — Penta5, DualGrid16, Wang2*, Min3x3, plus all Phase-3/3.5 layouts arriving later — returns `needs_diagonal_overlay() = false` and routes through the single-layer code path. This concentrates the overlay-path correctness on a single layout family.
-
-Mitigation — required acceptance criterion on the dispatcher-refactor wave:
-
-- **All 26 Phase 1 verification tests must continue to pass after the dispatcher refactor lands**, with explicit byte-equivalence checks that the visual output of `PentaTileLayoutPentaHorizontal` and `PentaTileLayoutPentaVertical` is unchanged on every mask 0..15. The tests live in / are run via the protocol referenced by `.planning/phases/01-contract-skeleton-penta-layouts/01-VERIFICATION.md`.
-- **A negative test should be added**: with a Penta4 layout assigned, after the lazy-skip refactor, `_overlay_layer != null` AND has at least one painted cell when masks 6 or 9 are present in the logic layer. (Confirms the lazy logic doesn't accidentally null-skip the overlay for the layout that DOES need it.)
-
-The planner MUST surface this as an explicit task on the dispatcher-refactor wave; this is not implicit in the "preserve Phase 1 verification" bullet of `<canonical_refs>`.
+CHANGELOG entries required for ALL of the above (DOC-04 in Phase 5).
 
 </code_context>
 
 <specifics>
 ## Specific Ideas
 
-### "Border" vs "Edge" terminology — settled
+### Phase 1 directory drift fix
 
-User flagged that `PentaEdge` would clash with the existing `Border` archetype (PentaTile's `Border` = the fully-flat side tile, atlas slot 2 in Penta4Horizontal — what Excalibur.js calls `Edge`). Picking `Penta5` sidesteps the collision entirely. Internal docs continue to use `Border` for the existing archetype; community-facing docs (templates/README, the new layout's `description` field) cross-reference Excalibur.js's `Edge` term so artists arriving from the dual-grid community can map between the two.
+Captured in D-71: the actual on-disk directory is `01-contract-skeleton-tetra-layouts/`. References in `REQUIREMENTS.md`, `ROADMAP.md`, `PROJECT.md` to `01-contract-skeleton-penta-layouts/` are stale. This CONTEXT.md uses the actual path everywhere; the cross-doc fix is deferred (see `<deferred>` below).
 
-### v0.1 visual continuity with Penta5
+### Penta canonical paint anchoring (preserved from old D-32 / D-46)
 
-If an artist paints the 5th OppositeCorners tile to match the visual output of v0.1's two-layer composition (i.e. the OUTER_CORNER tile rotated 180° overlaid with the OUTER_CORNER tile rotated 0° on the other layer), Penta5 produces output **bit-identical** to v0.1 / Phase 1's Penta4. This is the key visual-regression target per D-31 and TETRA5-02. The greybox template's 5th slot should be painted to make this obvious — see `_generate_greybox_templates.py` D-37 (the 5th slot greybox = mask 9 silhouette).
+PentaTile's canonical paint anchors **mask 9 (TL+BR, "\\" diagonal) as the unrotated case** for the OppositeCorners archetype. Excalibur.js's `calculateMeshSprite()` uses the opposite anchor (mask 6 = TR+BL = "/" diagonal). Both conventions are valid; PentaTile picks mask 9 = `_ROTATE_0` because it matches the project's TL=1 lowest-bit-first ordering (also used in `draw_corner_mask` in the bitmask generator script and across all corner-mask layouts in the project).
 
-### Future surface — PentaBake (parking lot)
+Document the divergence in `PentaTileLayoutPenta`'s class-level `##` doc-comment so an artist cross-referencing the Excalibur article (or a developer porting code) is not surprised by mirrored output. Suggested doc-comment: *"Note: PentaTile anchors mask 9 (TL+BR) as the unrotated OppositeCorners case. The Excalibur.js dual-grid reference uses the opposite anchor (mask 6 = TR+BL); both are valid conventions. If you author your OppositeCorners tile against the Excalibur convention, mask 6 and mask 9 will appear swapped — flip the sprite horizontally to match PentaTile's anchoring."*
 
-`TOOL-01: PentaBake — edit-time utility to procedurally compose a fifth edge/diagonal connector tile` (in v2 backlog) is now newly motivated. Phase 2 ships the *consumer* (the 5-tile layout); Phase 2 does **not** ship the *generator* (a tool that takes a Penta4 atlas and produces the OppositeCorners tile from the OUTER_CORNER source). PentaBake stays parked. Mention this in the Penta5 layouts' `description` field so artists know they have to author the 5th tile manually.
+### Marching Squares ↔ Wang2Edge cross-reference (preserved from old D-44)
 
-### Mask convention for Penta5 (inherited from Penta4)
+In `PentaTileLayoutWang2Edge`'s class-level `##` doc-comment AND `description` field: *"16-tile 4-bit edge mask (CR31 N=1/E=2/S=4/W=8). Also known as 'Marching Squares' in algorithm-centric writeups (e.g., the Excalibur.js dual-grid article); same atlas, different vocabulary."* Lands in Wave 4 as part of the layout implementation. Helps users arriving via marching-squares search terms find the right layout.
 
-```
-Corner mask (Penta5 inherits from Penta4):
-  TL=1, TR=2, BL=4, BR=8     →  mask 0..15
+### "Sacrificing quality for less quantity" — locked design intent
 
-Slot order in the atlas:
-  Penta5Horizontal = [Fill(0), InnerCorner(1), Border(2), OuterCorner(3), OppositeCorners(4)]
-  Penta5Vertical   = same order, transposed onto the y-axis (atlas_coords = (0, slot_index))
+The five progressive modes (ONE/TWO/THREE/FOUR/FIVE) are intentionally tiered for fast prototyping (per FOURTH SUPERSESSION D-61). Mid-tier modes (TWO/THREE/FOUR) deliberately allow visual inconsistencies between artist-authored slots and synthesized archetypes. This is documented intent, not a bug. Plan-phase should NOT add complexity to detect/repair these inconsistencies (e.g., color matching, sub-region blending) — the artist owns the consistency tradeoff and chooses the mode accordingly.
 
-Mask → slot table (only cases 6 and 9 differ from Penta4):
-  case 6 (TR+BL = "/" diagonal) → OppositeCorners with <mirror transform>
-  case 9 (TL+BR = "\" diagonal) → OppositeCorners with _ROTATE_0 (canonical paint)
-  all other cases → super.mask_to_atlas(mask) [unchanged from Penta4]
-```
+### Codename discipline — "Penta" usage
+
+Per CLAUDE.md "Coined-Term Discipline": "Penta" is reserved exclusively for the 5-archetype tileset format. Use `PentaTileLayoutPenta` (the merged class) and `PentaTileLayoutPenta(axis=...)` instances; do NOT coin "Penta" prefixes for unrelated subsystems. The synthesis machinery (`_synthesize_strip`) is named for what it does, not for the codename.
 
 </specifics>
 
 <deferred>
 ## Deferred Ideas
 
-### Pushed to Phase 3 / 3.5 / 4 / 5 (within v0.2 scope, no renumber)
+### Pushed to other phases (within v0.2 scope)
 
-- TileBitTools-decoded layouts (Blob47Godot, TilesetterWang15, TilesetterBlob47) — Phase 3
-- PixelLab layouts (TopDown, SideScroller) + variation_seed wiring — Phase 3.5
-- Runtime fallback routing (`tile_set == null` → `layout.fallback_tile_set`) — Phase 4. The Phase 2 `fallback_tile_set` `.tres` files for the 6 native layouts are *bundled* in Phase 2 but only *consumed* in Phase 4.
-- README `Layouts` section listing all 8 built-in layouts (now 8 with Penta5H/V, plus DualGrid16, Wang2*, Min3x3, plus the 3 TBT layouts from Phase 3 and 2 PixelLab from Phase 3.5 — actually 10) — Phase 5. Phase 2 only updates `addons/penta_tile/templates/README.md` (D-42).
-- CHANGELOG entry — Phase 5.
-- Demo refresh — Phase 5.
+- **Fallback routing wiring** (`tile_set == null` → `layout.get_fallback_tile_set()`) — Phase 4 (PREVIEW-03/04). Phase 2 ships only the codegen virtual + bundled PNGs.
+- **TileBitTools-decoded layouts** (Blob47Godot, TilesetterWang15, TilesetterBlob47) — Phase 3 (TBT-01..04, TEMPLATE-02, DOC-05).
+- **PixelLab layouts** (TopDown, SideScroller) + variation-bank wiring — Phase 3.5 (PIXLAB-01..04). Variation-bank deterministic pick (VAR-PIXEL-01) deferred to v2 with VAR-01.
+- **README "Layouts" section** + "Upgrading from 0.1.x" + "Authoring a Custom Layout" + CHANGELOG + demo refresh + release tag — Phase 5 (DEMO-01..03, DOC-01..05, REL-01..03).
+- **End-of-Phase-2 LOC checkpoint** vs identity guardrail — Wave 7 closeout (D-68).
+- **Phase 5 README half-tile-offset rationale paragraph** (preserved from old D-45) — Phase 5 deliverable, not Phase 2.
 
-### Pushed to v0.3+ / future milestones (out of v0.2 scope)
+### Pushed to v0.3+ / future milestones
 
-- **PentaBake** (procedural OppositeCorners generator from a Penta4 atlas) — TOOL-01 in v2 backlog. Now newly motivated by Penta5's existence, but still gated on author bandwidth + v1.0 stability. Parking lot.
-- **Y-axis variation** — original v0.2 pillar, deferred. Phase 3.5 wires `variation_seed` for PixelLab layouts only.
-- **Top-tile support** — original v0.2 pillar, deferred.
-- **RPG Maker A2/A4 subtile composition** — architecturally reserved, v0.3+ refactor.
-- **External editor importers (Tiled / LDtk)** — v0.3+.
-- **Multi-terrain transitions** — distinct R&D track.
-- **Shader fallback for diagonal compositing** — PERF-01. Penta5's overlay-skip + 5-tile architecture *partially* delivers this (no shader, but the overlay paint is eliminated for Penta5 specifically; Penta4 still needs it). Original PERF-01 stays in v2 backlog.
-- **Editor visualizer / `EditorInspectorPlugin` polish** — Phase 5 demo or v0.3.
-- **Wang/blob → PentaTile converter** (TOOL-02) — authoring tooling deferred.
-- **Asset Library submission, MkDocs site, formal GUT test suite** — DIST-01, DIST-02 in v2 backlog.
+- **Y-axis variation** (VAR-01) — design-coupled with MULTITERR-01 + VAR-PIXEL-01; resolve together.
+- **Top-tile support** (TOP-01).
+- **RPG Maker A1/A2/A4 subtile composition** (RPGM-01..03) — research at `.planning/research/layouts/RPG_MAKER.md` recommends offline importer (Option 1) for v0.3+.
+- **Multi-terrain transitions** (TERRAIN-01) and multi-terrain in one tileset (MULTITERR-01..05).
+- **PentaBake** (procedural OppositeCorners generator) — TOOL-01. Now superseded by the synthesis machinery this phase ships, but the standalone tool is still parked.
+- **Wang/blob → PentaTile converter** (TOOL-02), Tiled `.tsx` / LDtk `.ldtk` importers (IMPORT-01/02).
+- **Shader fallback for diagonal compositing** (PERF-01) — partially obviated by overlay-layer deletion.
+- **Asset Library distribution, MkDocs site, formal GUT test suite** (DIST-01/02).
 
-### Reviewed during this discussion but explicitly deferred
+### Doc-drift cleanup (deferred per D-71)
 
-- **Asymmetric 6-tile variant of Penta5** (separate sprites for mask 6 vs mask 9). Would offer maximum artistic freedom for asymmetric diagonal art. Rejected per D-31: breaks the "5-tile" name, doubles the new authoring burden, and the rotation pattern is sufficient for the platformer / top-down art the user actually ships.
-- **Author-mirrored sentinel** (paint mask 6 only, runtime auto-flips for mask 9). Rejected per D-31: fragile vs the explicit 1-sprite + transform model.
-- **Naming `PentaEdge` / `PentaOpposite` / `PentaDiagonal` / `PentaOppositeCorners`** — rejected per D-29 in favor of `Penta5` (community alignment via D-30's `OppositeCorners` *archetype* term, but PentaTile's own number-suffix pattern wins for the layout class name).
+- Rename `.planning/phases/01-contract-skeleton-tetra-layouts/` → `01-contract-skeleton-penta-layouts/` OR fix the references in `REQUIREMENTS.md` (LAYER-05), `ROADMAP.md`, `PROJECT.md` to use the actual path. Out of Phase 2 scope. Can be folded into any Phase 5 docs sweep, or addressed in a standalone docs cleanup phase.
+
+### Items considered and rejected during the supersession trail (preserved from the historical CONTEXT.md so future agents don't re-litigate)
+
+- **Separate `Penta5Horizontal` / `Penta5Vertical` classes** — rejected in FIRST SUPERSESSION D-47..D-52 in favor of synthesis on the merged class.
+- **`PentaTileLayoutSingleTile` separate class** for ONE-mode prototyping — rejected in SECOND SUPERSESSION D-53 in favor of `tile_count: ONE` mode on the merged Penta layout.
+- **`needs_diagonal_overlay() -> bool` virtual** for runtime overlay-skip — rejected in FIRST SUPERSESSION D-51 in favor of full overlay-layer deletion.
+- **`version: int` field on Resources** for forward-compat — rejected in THIRD SUPERSESSION D-56 per the no-forward-compat policy.
+- **`decoder_image: Texture2D`** speculative property — rejected in THIRD SUPERSESSION D-59 (no consumer; deleted).
+- **Two PNGs per layout** (`atlas.png` + `bitmask.png` split) — rejected in FOURTH SUPERSESSION D-65 in favor of single PNG per layout serving both roles.
+- **Strict fill-percentage slot ordering** (100% → 75% → 50% → 50%) for the Penta archetypes — rejected in FOURTH SUPERSESSION D-63 in favor of visual-frequency ordering (Border at slot 2 before InnerCorner at slot 3).
 
 </deferred>
 
 ---
 
 *Phase: 02-native-layouts*
-*Context gathered: 2026-04-26*
+*Context regathered: 2026-04-26 (fifth supersession round)*
+*Supersedes: 02-CONTEXT.md @ commit 8ca3231 (D-28..D-46) — historical*

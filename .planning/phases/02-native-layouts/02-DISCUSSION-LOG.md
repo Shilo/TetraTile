@@ -414,3 +414,71 @@ If you've started planning Phase 2 against any prior supersession, **this fourth
 - No `templates/` folder — bundled PNGs co-locate in `layouts/`
 - `PentaTileAtlasContract` deleted; `layout: PentaTileLayout` directly on layer
 - One merged `PentaTileLayoutPenta` class with `axis` + `tile_count` enums
+
+---
+
+## FIFTH SUPERSESSION — 2026-04-26 (re-discussion / CONTEXT.md regenerated against locked architecture)
+
+After the rename, the user re-ran `/gsd-discuss-phase 2` to bring `02-CONTEXT.md` into alignment with the locked architecture from D-47..D-67. The prior CONTEXT.md (commit 8ca3231, decisions D-28..D-46) is now HISTORICAL — the renamed and reorganized architecture across four supersession rounds had moved past it. The user explicitly requested a fresh CONTEXT.md authored against the locked design rather than a patch.
+
+The user pre-framed four concerns to be surfaced as gray areas:
+1. Phase 2 size / wave breakdown (~30 reqs, 17 success criteria, 7 waves)
+2. PENTA-SYNTH-05 ONE-mode sub-region anchoring (the riskiest synthesis path)
+3. PENTA-SYNTH-06 collision-polygon transform math (concrete formulas required)
+4. Phase 1 verification suite migration (LAYER-05) into Phase 2 Wave 1
+
+User's pacing direction: *"only discuss things you deam critical or invalid or a potential issue"* and *"i just want this phase to be executed asap. so we need to conclude discussion with only discussing critical issues."*
+
+### What changed (since the fourth supersession)
+
+| Fourth supersession | Fifth supersession |
+|---|---|
+| 7-wave breakdown locked but flagged for plan-phase to validate | **7-wave breakdown locked verbatim**; not re-litigated this round (D-68) |
+| PENTA-SYNTH-05 anchoring listed as "Recommend Spike 004 OR plan-phase pins it down" | **Plan-phase gate** (no spike — user declined; D-69) |
+| PENTA-SYNTH-06 polygon math noted as "worth a sketch in the plan before executor hits it" | **Hard plan-phase gate** with explicit deliverables (D-70) |
+| Phase 1 directory drift not noticed | **Acknowledged**; CONTEXT.md uses actual path (`tetra-layouts/`); cross-doc fix deferred (D-71) |
+
+### New decisions (D-68..D-71)
+
+- **D-68: Wave breakdown locks at the FOURTH SUPERSESSION 7-wave plan; not re-litigated this round.** The user accepted the size of Phase 2 (~30 reqs / 17 success criteria) without revision. Splitting into Phase 2.0 / 2.5 was considered and rejected — the dependency graph is tight enough (Wave 4 native layouts depend on Wave 3 merged class depends on Wave 2 synthesis machinery depends on Wave 1 base renames) that a split would not buy clarity. Plan-phase may refine sub-task ordering within waves but should not retroactively re-split the phase without re-discussion.
+
+- **D-69: PENTA-SYNTH-05 ONE-mode sub-region anchoring is a HARD plan-phase gate.** User declined the Spike 004 option (their words: *"i have no clue what spiking is, i just want this phase to be executed asap"*). The geometric question — *"where in slot 0 do the synthesized archetypes' sub-regions live? what tile-size constraints apply (square only? minimum dimensions?)? how does the anchoring degrade on non-square tiles?"* — is genuinely UNDEFINED in the supersession trail (Spikes 001-003 covered DECODER feasibility, not synthesis-from-a-single-source). Plan-phase MUST resolve before Wave 2 task generation, with explicit justification for the chosen anchoring convention. Required deliverables in PLAN.md:
+  1. A diagram showing where each archetype's sub-rect lives within slot 0 for ONE mode.
+  2. Tile-size constraints (e.g., "minimum 4×4 px," "must be square," etc.).
+  3. Degradation behavior on non-square / mid-tier-mode atlases.
+  4. The same anchoring math used in TWO/THREE/FOUR mode synthesis where slot 0 still feeds the missing archetypes.
+  Plan-checker must review the anchoring decision against `_synthesize_strip` task specs.
+
+- **D-70: PENTA-SYNTH-06 polygon transform math is a HARD plan-phase gate.** D-49 (FIRST SUPERSESSION) commits to copying source-tile collision/occlusion/navigation polygons (`Vector2[]`) to synthesized tiles with appropriate transforms; the math is undefined. Plan-phase MUST specify before Wave 2 task generation:
+  1. Polygon vertex transformation formulas under each `TRANSFORM_FLIP_H` / `FLIP_V` / `TRANSPOSE` flag (and combinations) — `Transform2D` or per-vertex math, with the local-origin convention pinned (tile-center vs tile-top-left).
+  2. Sub-region polygon clipping approach for ONE/TWO/THREE modes where the synthesized tile uses only PART of slot 0's polygon area (Sutherland-Hodgman or axis-aligned-rect-only intersection).
+  3. Edge cases: polygons crossing the sub-region boundary, polygons entirely outside the sub-region (drop), occlusion polygons with `polygon_index` > 0, navigation polygons with hole loops.
+  4. What is NOT copied (locked): animation frames, custom data layers, probability weights, Y-sort origin.
+
+- **D-71: Phase 1 directory name drift acknowledged; cross-doc fix deferred.** The actual on-disk directory is `.planning/phases/01-contract-skeleton-tetra-layouts/`. References in `REQUIREMENTS.md` (LAYER-05), `ROADMAP.md`, and `PROJECT.md` to `01-contract-skeleton-penta-layouts/` are stale — Phase 1.1's PentaTile rename swept source code + saved resources + most docs but left phase directory names untouched. The new CONTEXT.md authors against the **actual** path (`tetra-layouts/`); the cross-doc fix is captured as deferred cleanup, out of Phase 2 scope. Downstream agents reading CONTEXT.md should NOT trust the `penta-layouts/` paths in the upstream docs without first checking the actual directory name.
+
+### Decisions superseded by this round
+
+None. This round is operational — it locks open gates and routes them to plan-phase, but does not modify the architecture from D-47..D-67.
+
+### Decisions still in force unchanged
+
+All of D-47..D-67. The fifth supersession is additive.
+
+### Concerns deliberately NOT escalated this round (per user's "only critical issues" framing)
+
+- Phase 2 size / wave-split debate (locked at FOURTH SUPERSESSION).
+- Phase 1 verification migration sequencing (locked as Wave 1 pre-work; new tests for TWO/THREE/FIVE/AUTO_STRIP added at planner discretion).
+- `update_configuration_warnings()` exact text (planner discretion provided each failure mode is named).
+- `_synthesize_strip` internal API shape (planner discretion provided determinism + invalidation contract holds).
+- Pixel-hash baseline storage choice for PENTA-SYNTH-12 (planner picks int hash vs PNG file).
+
+### What this means for the Phase 2 planner
+
+This is an **operational supersession**, not an architectural one. The locked design from D-47..D-67 is unchanged. Plan-phase now has two hard gates it cannot punt to the executor:
+- D-69: lock the ONE-mode sub-region anchoring spec with diagram + tile-size constraints + degradation rules + cross-mode anchoring consistency.
+- D-70: spec the polygon transform math (formulas + clipping approach + edge cases).
+
+Wave 2 task generation cannot begin until both are answered in PLAN.md. If plan-phase escalates either back to the user, that's an acceptable outcome — but plan-phase must NOT generate executor tasks against an undefined spec.
+
+The fresh `02-CONTEXT.md` (committed alongside this log entry) is the operative artifact for plan-phase consumption. The HISTORICAL `02-CONTEXT.md` at commit 8ca3231 (D-28..D-46) is preserved in git history for archaeological reference; do not patch against it.
