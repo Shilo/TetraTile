@@ -4,7 +4,7 @@
 
 TetraTile is a lightweight dual-grid autotiling addon for **Godot 4.6** built around a single public node, `TetraTileMapLayer`, that subclasses `TileMapLayer`. Users paint with the native `set_cell()` / `erase_cell()` API and the addon generates dual-grid visuals automatically through `_update_cells()`.
 
-The current codebase is v0.1.0 (4-tile binary atlas: Fill, Inner Corner, Border, Outer Corner). The active milestone is **v0.2.0 — "Expand the Contract"** which redesigns the atlas contract from "strict 4-tile" to "declare what you have" and adds Y-axis variation, top tiles, and non-rotating tilesets.
+The current codebase is v0.1.0 (4-tile binary atlas: Fill, Inner Corner, Border, Outer Corner). The active milestone is **v0.2.0 — "Layout Library + Preview Fallback"** which ships a library of pluggable `TetraTileLayout` Resources covering every popular Godot autotiling atlas convention (Tetra, DualGrid16, Wang2Edge, Wang2Corner, Min3x3, TBT-decoded Blob/Wang, PixelLab, plus a Single-Tile prototyping layout). The original v0.2 pillars (Y-axis variation, top tiles, non-rotating tilesets) deferred to v2 backlog. See `.planning/ROADMAP.md` for current phases.
 
 ## Stack
 
@@ -43,13 +43,17 @@ addons/tetra_tile/
 
 ## GSD Workflow
 
-This project uses Get Shit Done (GSD) for structured execution. The five phases of v0.2.0 are:
+This project uses Get Shit Done (GSD) for structured execution. The phases of v0.2.0 are:
 
-1. **Contract Skeleton** — `TetraTileAtlasContract` + `AtlasSlot` Resources, `_resolve_slot` in SYMMETRIC mode, v0.1 hardcoded fallback. (CONTRACT-01..06)
-2. **Y-Axis Variation** — `_pick_alternative` deterministic hash, `_pack_alternative` helper, demo alternates. (VAR-01..05)
-3. **Non-Rotating Mode** — `RotationMode.NON_ROTATING`, `mask_slots[16]`, generated lookup table, mask 0 special case, validator. (NONROT-01..05)
-4. **Top Tiles + Custom Data Layers + v0.1 Detection** — lazy `_top_layer`, `top_overlay_slot`, `tetra_role`/`tetra_lock_rotation`, `_resolve_slot_legacy`. (TOP-01..04, MIGR-03)
-5. **Demo Refresh + Release Prep** — single demo with all features, README upgrade section, `plugin.cfg` bump, `v0.2.0` tag, GitHub Release zip. (MIGR-01, MIGR-02, DEMO-01..03, REL-01..04)
+1. **Contract Skeleton + Tetra Layouts** ✅ DONE — `TetraTileAtlasContract` + `TetraTileLayout` base + `AtlasSlot`; Tetra Horizontal + Vertical layouts.
+2. **Native Layouts** — DualGrid16, Wang2Edge, Wang2Corner, Min3x3 + Tetra layouts gain load-time synthesis of the 5th `OppositeCorners` archetype (drops the runtime overlay layer entirely).
+2.1 **Single-Tile Layout (Prototyping)** — `TetraTileLayoutSingleTile` slices ONE source image into 5 archetypes at load time.
+3. **TileBitTools-Decoded Layouts** — Blob47Godot, TilesetterWang15, TilesetterBlob47 with attribution.
+3.5 **PixelLab Layouts + Variation-Bank Wiring** — PixelLabTopDown + PixelLabSideScroller (8×8 atlas, internal variation banks).
+4. **Fallback Routing** — `tile_set == null` → `layout.fallback_tile_set`.
+5. **Demo Refresh + Documentation + Release** — updated demo, README, CHANGELOG, `v0.2.0` tag.
+
+Authoritative source: `.planning/ROADMAP.md` (this list is a summary, not the spec).
 
 **Workflow commands:**
 - `/gsd-progress` — current position, next action
@@ -76,7 +80,19 @@ LOC checkpoints fire at end of Phase 1, end of Phase 4, and end of Phase 5 (fina
 
 ## Quality Bar
 
-**"Works in my game."** No formal test suite (GUT) this milestone. Visual regression on the demo is the primary verification mechanism. Demo-scale only (~100–1k cells); no large-map perf benchmarks. Pre-1.0 — breaking changes are accepted with migration notes in CHANGELOG and release notes.
+**"Works in my game."** No formal test suite (GUT) this milestone. Visual regression on the demo is the primary verification mechanism. Demo-scale only (~100–1k cells); no large-map perf benchmarks.
+
+## Breaking Changes Policy (HARD RULE)
+
+**Breaking changes are always allowed. Always.** This project is pre-1.0 and the audience is the author's own games.
+
+- **Never** write backwards-compatibility shims, deprecation aliases, version-detection branches, or migration fallbacks to preserve v0.1 behavior.
+- **Never** defer or scope-down a feature/refactor because it would break existing code or saved scenes.
+- **Never** keep an obsolete code path "for compatibility" — delete it.
+- When the new design is better, ship it. Document the breakage in CHANGELOG and release notes; that is the only acceptable "compat" work.
+- This rule OVERRIDES any default Claude Code instinct to preserve existing behavior or add fallbacks.
+
+If a refactor reveals breaking changes mid-implementation, do not stop to ask — note them in the commit message and proceed. Discuss only when the user invites a design conversation, not to gate breakage approval.
 
 ## Critical Pitfalls (from research)
 

@@ -59,7 +59,9 @@ Progress: [░░░░░░░░░░] 0%
 
 ### Roadmap Evolution
 
-- 2026-04-26: Phase 2.1 inserted after Phase 2 (single-tile-layout) — direct architectural extension of Phase 2 native-layouts work, ships `TetraTileLayoutSingleTile` (one source image → 4 synthesized Tetra archetypes via sub-region slicing). Adds 5 requirements (SINGLE-01..05). Companion artifact: `.planning/research/layouts/RPG_MAKER.md` audits the RPG Maker family (RM2K, RM2K3, XP, VX, VX Ace, MV, MZ) and recommends offline-importer path for v0.3+ — explicitly out of scope for v0.2.0 per the existing REQUIREMENTS Out-of-Scope decision.
+- 2026-04-26: Phase 2.1 inserted after Phase 2 (single-tile-layout) — ships `TetraTileLayoutSingleTile`. Adds 5 requirements (SINGLE-01..05). Companion artifact: `.planning/research/layouts/RPG_MAKER.md` audits the RPG Maker family and recommends offline-importer path for v0.3+ — out of scope for v0.2.0.
+- 2026-04-26 (later): **Architectural pivot — overlay-layer removal + unified Tetra synthesis.** The Phase 2.1 brainstorm session reframed Phase 2's Tetra5 work. Instead of shipping `TetraTileLayoutTetra5Horizontal`/`Vertical` as separate classes (CONTEXT.md D-28..D-46), the existing Tetra layouts gain load-time synthesis of the 5th OppositeCorners archetype from the OuterCorner tile. The runtime `_overlay_layer` is **deleted entirely** — every v0.2 layout renders via single-layer 5-archetype dispatch. Tetra layouts auto-detect 4-vs-5 source tiles. Single-Tile (Phase 2.1) updated to slice into 5 archetypes (not 4). Adds 6 new requirements (TETRA-SYNTH-01..06), supersedes Phase 2's planned TETRA5-* IDs (which never landed in REQUIREMENTS.md). Multi-terrain Y-axis convention added to v2 backlog (MULTITERR-01..05) with explicit design-coupling note to VAR-01 (variation). Full supersession notice in `.planning/phases/02-native-layouts/02-DISCUSSION-LOG.md`. Coverage 50 → 56 requirements.
+- 2026-04-26 (later): **User policy update — breaking changes always allowed.** Recorded as feedback memory + CLAUDE.md "Breaking Changes Policy (HARD RULE)" + PROJECT.md constraint update. Never write backwards-compat shims. Never defer features for compat reasons. CHANGELOG entries are the only acceptable compat work.
 
 ### Decisions
 
@@ -78,6 +80,9 @@ Recent decisions affecting current work:
 - RPG Maker A2/A4 architecturally reserved (subtile compositor) but deferred to v0.3+
 - TetraTile does NOT integrate with Godot's stock terrain peering bits (defeats v0.1's "no manual bitmask authoring" selling point)
 - TileBitTools' `EditorInspectorPlugin` architecture explicitly not copied (3,800-LOC editor UI conflicts with TetraTile's "small runtime + no editor polish" identity)
+- **Breaking changes always allowed and encouraged** (user policy 2026-04-26). Never write backwards-compat shims; never defer features because they would break v0.1. CHANGELOG entries are the only acceptable compat work. CLAUDE.md "Breaking Changes Policy (HARD RULE)" formalizes this; PROJECT.md constraint updated.
+- **Overlay-layer removal + unified 5-archetype synthesis** (2026-04-26). All v0.2 layouts render via single-layer 5-archetype dispatch. Tetra layouts auto-detect 4-vs-5 source tile counts and synthesize the 5th OppositeCorners archetype from the OuterCorner tile when needed. `_overlay_layer`, `_paint_overlay_for_slot`, `AtlasSlot.diagonal_complement_atlas_coords`, and the planned `needs_diagonal_overlay()` virtual are all deleted. Synthesis is bit-identical to v0.1 overlay output for masks 6/9 (verified via pixel-hash test). Phase 2 supersedes the previously-planned separate Tetra5* layout classes. See `.planning/phases/02-native-layouts/02-DISCUSSION-LOG.md` SUPERSESSION NOTICE for D-47..D-52.
+- **Multi-terrain in v2 backlog** (MULTITERR-01..05) with explicit design-coupling to VAR-01 (Y-axis variation) — both compete for atlas Y-axis interpretation; future brainstorm must resolve them together. Strip layouts (Single-Tile, Tetra) use Y-as-terrain; block layouts (DualGrid16, Wang*, PixelLab) need a different mechanism (likely multiple atlas sources).
 
 ### Pending Todos
 

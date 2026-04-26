@@ -54,13 +54,15 @@ Plans:
 - [x] 01-04-PLAN.md — Wave 3: Layer dispatcher rewrite (hard-remove enum + atlas_layout export, add atlas_contract setter, _resolve_layout lazy singleton, dual+single grid pipeline branch)
 - [x] 01-05-PLAN.md — Wave 4: Bundled .tres files + demo wiring + visual regression + idempotence/storm test + LOC checkpoint
 
-### Phase 2: Native Layouts
+### Phase 2: Native Layouts + Tetra Synthesis & Overlay Removal
 
-**Goal**: Three TetraTile-native layout subclasses (DualGrid16, Wang2Edge, Wang2Corner) **plus Minimal3x3 (3×3 atlas, 9 tiles, single-grid, 4-bit edge mask — covers PixelLab Tileset 3×3 export + RPG Maker A2 + legacy Godot 3.x)** ship with hand-authored slot tables and bundled fallback TileSets. Each can be assigned to a `TetraTileAtlasContract` and used to paint with a matching atlas.
+**Goal**: Three TetraTile-native layout subclasses (DualGrid16, Wang2Edge, Wang2Corner) **plus Minimal3x3** ship with hand-authored slot tables and bundled fallback TileSets. **Plus the architectural pivot**: existing `TetraTileLayoutTetraHorizontal`/`TetraTileLayoutTetraVertical` gain load-time synthesis of a 5th `OppositeCorners` archetype from the OuterCorner tile. The runtime overlay layer (`_overlay_layer`, `diagonal_complement_atlas_coords`, `_paint_overlay_for_slot`) is **deleted entirely**. After Phase 2, every v0.2 layout renders via single-layer 5-archetype dispatch with no per-paint composition.
+
+This supersedes the earlier "append Tetra5 as separate layout class" plan in `.planning/phases/02-native-layouts/02-CONTEXT.md` (D-28..D-46). The Tetra layouts auto-detect 4-vs-5-tile source atlases: 4-tile sources synthesize the 5th; 5-tile sources use the artist's hand-authored 5th. Same class, two artist conventions, one render path.
 
 **Depends on**: Phase 1 (the layout dispatch must exist before layout subclasses can plug in).
 
-**Requirements**: NATIVE-01, NATIVE-02, NATIVE-03, MIN3x3-01, PREVIEW-02 (the bundled `fallback_tile_set` `.tres` files for the 5 native layouts), TEMPLATE-04 (visual regression for the native layouts; templates 01/03 already shipped in commit e86036f).
+**Requirements**: NATIVE-01, NATIVE-02, NATIVE-03, MIN3x3-01, TETRA-SYNTH-01..06, PREVIEW-02 (bundled `fallback_tile_set` `.tres` files for the 5 native layouts + 5-tile templates), TEMPLATE-04 (visual regression for the native layouts; templates 01/03 already shipped in commit e86036f).
 
 **Success Criteria** (what must be TRUE):
 1. DualGrid16 layout, with a 16-tile authored atlas, paints all 16 mask states correctly across the demo (each `r*4 + c` slot renders the expected silhouette per the corner-mask convention TL=1/TR=2/BL=4/BR=8).
@@ -68,21 +70,25 @@ Plans:
 3. Wang2Corner layout produces visuals identical to DualGrid16 on the same atlas data — different bit naming, same silhouettes (per the COMPARISON.md disambiguation).
 4. Each native layout's bundled fallback TileSet, when used with `tile_set == fallback_tile_set` (manually assigned), renders the greybox template correctly across all 16 slots.
 5. The greyboxed templates already shipped in `addons/tetra_tile/templates/` match the layout Resources' `mask_to_atlas` tables (visual regression: paint each layout's fallback TileSet, confirm visible silhouettes match the template).
+6. **Tetra synthesis pixel-identity**: with a v0.1 4-tile Tetra atlas attached, the synthesized OppositeCorners produces pixel-hash-identical output to v0.1's overlay-layer composition for masks 6 and 9. Verified via deterministic hash comparison test.
+7. **Overlay layer removed**: `TetraTileMapLayer._overlay_layer` field, `_OVERLAY_LAYER_NAME` constant, `_paint_overlay_for_slot()`, and `AtlasSlot.diagonal_complement_atlas_coords` are all deleted. After Phase 2, `TetraTileMapLayer` has exactly ONE child visual layer (`_primary_layer`).
+8. **Tetra auto-detect**: assigning a 4-tile source atlas → synthesis fires; assigning a 5-tile source atlas → slot 4 used directly. Layout detects via `TileSetAtlasSource.get_atlas_grid_size()`. No user-facing toggle.
+9. **Synthesis collision support**: source tile collision/occlusion/navigation polygons are copied to the synthesized OppositeCorners tile (one set per source archetype, translated to the diagonal positions). Animation/custom-data/probability/y-sort explicitly NOT supported on synthesized tiles (use a different layout if needed; documented in DOC-03).
 
 **Plans**: TBD
 
 ### Phase 2.1: Single-Tile Layout (Prototyping) (INSERTED)
 
-**Goal**: Ship `TetraTileLayoutSingleTile` — a layout where the user provides ONE source image depicting a fully-isolated cell (visible borders/corners/fill all baked into a single tile, like the reference image at https://user-images.githubusercontent.com/47016402/87044533-f5e89f00-c1f6-11ea-9178-67b2e357ee8a.png coord (0,3)). At contract-load time the layout slices the source tile into sub-regions and synthesizes the four Tetra archetypes (Fill, Inner Corner, Border, Outer Corner). All 16 mask states render through the existing dual-grid pipeline with no runtime quad composition. The prototyping UX win: one tile in, coherent autotiled output, zero broken seams.
+**Goal**: Ship `TetraTileLayoutSingleTile` — a layout where the user provides ONE source image depicting a fully-isolated cell (visible borders/corners/fill all baked into a single tile, like the reference image at https://user-images.githubusercontent.com/47016402/87044533-f5e89f00-c1f6-11ea-9178-67b2e357ee8a.png coord (0,3)). At contract-load time the layout slices the source tile into sub-regions and synthesizes the **5 Tetra archetypes (Fill, InnerCorner, Border, OuterCorner, OppositeCorners)** — matching the unified Tetra synthesis architecture from Phase 2 (TETRA-SYNTH-*). All 16 mask states render through the unified single-layer 5-archetype dispatch — no overlay layer, no runtime quad composition. The prototyping UX win: one tile in, coherent autotiled output, zero broken seams.
 
 **Depends on**: Phase 1 (Contract + AtlasSlot + dispatch). Sequenced after Phase 2 (Native Layouts) only because Phase 2 establishes the `fallback_tile_set` bundling pattern this phase mirrors. No data-table dependency on Phase 2 layouts.
 
 **Requirements**: SINGLE-01, SINGLE-02, SINGLE-03, SINGLE-04, SINGLE-05.
 
 **Success Criteria** (what must be TRUE):
-1. A `TetraTileLayoutSingleTile` Resource with a one-cell source image renders all 16 mask states without broken seams when assigned to a `TetraTileMapLayer.atlas_contract`. Visible regions tested: isolated cell, horizontal strip, L-shape, filled rectangle.
-2. The 4 synthesized archetypes are deterministic across `rebuild()` calls (no shimmering). Cached on the layout instance; regenerated only when `source_atlas_coords` or the underlying atlas changes.
-3. LOC budget: total addition (`tetra_tile_layout_single_tile.gd` + bundled `.tres` + greybox template PNG) stays under ~80 LOC of GDScript. Identity guardrail check: no new dispatcher branch, no new render path, no new layer, no editor plugin.
+1. A `TetraTileLayoutSingleTile` Resource with a one-cell source image renders all 16 mask states without broken seams when assigned to a `TetraTileMapLayer.atlas_contract`. Visible regions tested: isolated cell, horizontal strip, L-shape, filled rectangle. Masks 6 and 9 render correctly via the synthesized OppositeCorners archetype (no overlay layer involved).
+2. The **5 synthesized archetypes** (Fill, InnerCorner, Border, OuterCorner, OppositeCorners) are deterministic across `rebuild()` calls (no shimmering). Cached on the layout instance; regenerated only when `source_atlas_coords` or the underlying atlas changes.
+3. LOC budget: total addition (`tetra_tile_layout_single_tile.gd` + bundled `.tres` + greybox template PNG) stays under ~80 LOC of GDScript. Identity guardrail check: shares the same synthesis machinery as Phase 2's TETRA-SYNTH-* (no new dispatcher branch, no new render path, no editor plugin).
 4. Bundled fallback works: with the Phase 4 (Fallback Routing) wiring landed, `tile_set = null` + `atlas_contract.layout = TetraTileLayoutSingleTile` + paint produces visible greybox tiles. Pre-Phase-4 fallback: manually assigning `tile_set = layout.fallback_tile_set` produces visible output.
 5. `addons/tetra_tile/templates/single_tile.png` ships — one greyboxed cell with all-edges-and-corners-and-fill drawn so the layout has a working preview out of the box.
 
@@ -177,19 +183,19 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 3 → 3.5 → 4 → 5
 
 ## Coverage
 
-All 50 v1 requirements (39 original + 6 added per Phase 1 discuss session, D-24..D-27 + 5 added 2026-04-26 for Phase 2.1 single-tile insert) mapped to exactly one phase. No orphans, no duplicates.
+All 56 v1 requirements (39 original + 6 added per Phase 1 discuss session, D-24..D-27 + 5 added 2026-04-26 for Phase 2.1 single-tile insert + 6 added 2026-04-26 for TETRA-SYNTH overlay-removal pivot) mapped to exactly one phase. No orphans, no duplicates.
 
 | Phase | Requirements (count) |
 |-------|----------------------|
 | 1. Contract Skeleton + Tetra Layouts | CONTRACT-01..05, LAYOUT-01..05, TETRA-01..03, PREVIEW-01 (14) |
-| 2. Native Layouts | NATIVE-01..03, MIN3x3-01, PREVIEW-02 (partial), TEMPLATE-04 (partial) (6) |
+| 2. Native Layouts + Tetra Synthesis | NATIVE-01..03, MIN3x3-01, TETRA-SYNTH-01..06, PREVIEW-02 (partial), TEMPLATE-04 (partial) (12) |
 | 2.1. Single-Tile Layout (INSERTED) | SINGLE-01..05 (5) |
 | 3. TileBitTools-Decoded Layouts | TBT-01..04, TEMPLATE-02, DOC-05 (6) |
-| 3.5. PixelLab Layouts + Variation-Seed Wiring | PIXLAB-01..04, VAR-PIXEL-01 (5) |
+| 3.5. PixelLab Layouts + Variation-Bank Wiring | PIXLAB-01..04, VAR-PIXEL-01 (5) |
 | 4. Fallback Routing | PREVIEW-03, PREVIEW-04 (2) |
 | 5. Demo Refresh + Documentation + Release | DEMO-01..03, DOC-01..04, REL-01..03 (10) |
 | **Pre-shipped (out-of-band, commit e86036f)** | TEMPLATE-01, TEMPLATE-03 (2) |
-| **Total** | **39 + 6 + 5 = 50 / 50** |
+| **Total** | **39 + 6 + 5 + 6 = 56 / 56** |
 
 > TEMPLATE-01 and TEMPLATE-03 already shipped in commit e86036f (5 of 8 greybox templates + the generator script). Counted as covered; the remaining 3 templates ship in Phase 3 as part of TEMPLATE-02.
 

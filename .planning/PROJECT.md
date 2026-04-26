@@ -83,7 +83,7 @@ Painting tiles with the native `TileMapLayer` API produces correct dual-grid aut
 - **Tech stack**: Godot 4.6+ stable. Pure GDScript. No C#, no GDExtension, no third-party dependencies.
 - **Engine API**: Implementation must continue to ride `TileMapLayer._update_cells()`. No persistent coordinate cache, signal fanout, or watcher systems (per the existing architecture's "lean" stance).
 - **Distribution**: GitHub releases with plain semver tags (no `-pre`, `-alpha`, `-dev` suffixes). No Asset Library submission this milestone.
-- **Audience**: The author's own games. No public-API SLA; breaking changes accepted with migration notes in commits/release notes.
+- **Audience**: The author's own games. No public-API SLA. **Breaking changes are always allowed and explicitly encouraged when they enable improvements; never write backwards-compatibility shims, never defer features because they would break v0.1.** Migration notes go in CHANGELOG and release notes; that's the only "compat" work.
 - **Performance**: Demo-scale target (~100–1k cells). Interactive painting and runtime drag-paint must remain fluid; large-map perf is not a milestone gate.
 - **Identity**: TetraTile must remain visibly smaller and simpler than TileMapDual; expansions should not pull in terrain metadata, tile caches, or watcher infrastructure.
 
@@ -104,7 +104,8 @@ Painting tiles with the native `TileMapLayer` API produces correct dual-grid aut
 | Greyboxed templates ship via committed `_generate_greybox_templates.py` (Pillow) | Reproducible, regenerable; no opaque pixel data; user edits the silhouettes into final art | — Pending |
 | TetraTile does NOT integrate with Godot's stock terrain peering bits | Defeats the v0.1 selling point of "no manual bitmask authoring." Comparison and reasoning in `.planning/research/layouts/GODOT_TERRAIN.md` | — Pending |
 | TileBitTools' `EditorInspectorPlugin` architecture explicitly NOT copied | Their addon is ~3,800 LOC of edit-time UI; TetraTile's identity is small runtime + zero editor polish | — Pending |
-| Breaking changes allowed; v0.1 atlases may require migration | Pre-1.0; audience is the author's own games | — Pending |
+| Breaking changes always allowed and encouraged; never add backwards-compat shims | Pre-1.0; audience is the author's own games. User explicit policy 2026-04-26: never defer features or write fallbacks for compat reasons. CHANGELOG entries are the only acceptable "compat" work. | — Active |
+| v0.2 architecture: every layout renders via load-time synthesis to a 5-archetype dispatch; runtime overlay layer removed entirely | Eliminates a TileMapLayer per node, simplifies AtlasSlot (drops `diagonal_complement_atlas_coords`), folds Tetra4 + Tetra5 into one auto-detect layout, makes Single-Tile and any future synthesized layouts share one render path. Synthesis happens at `atlas_contract` setter time (editor + runtime), bit-identical to v0.1 overlay output for masks 6/9. | — Pending (Phase 2) |
 | GitHub release only; no Asset Library, no MkDocs | Audience is private; discoverability and full docs site are not goals this milestone | — Pending |
 | Quality bar is "works in my game" — no formal test suite, no perf benchmarks | Keeps milestone scope tight on the layout library | — Pending |
 | One expanded demo scene over multiple per-feature demos | Simpler maintenance; surface area stays small as layouts land | — Pending |

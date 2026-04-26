@@ -144,3 +144,61 @@ Per `<deferred>` section in CONTEXT.md:
 - Asymmetric 6-tile variant — rejected per D-31 (breaks "5-tile" name, doubles authoring burden)
 - Author-mirrored sentinel — rejected per D-31 (fragile)
 - Class-name alternatives `TetraEdge` / `TetraOpposite` / `TetraOppositeCorners` / `TetraDiagonal` — rejected per D-29 in favor of `Tetra5`
+
+---
+
+## SUPERSESSION NOTICE — 2026-04-26
+
+The Phase 2.1 brainstorm session reframed the Tetra5 plan. **The decisions in CONTEXT.md (D-28..D-46) and the rounds above are partially superseded.** The user's policy on breaking changes ("always allowed, always; never write compat shims") and the realization that the previously-deferred TetraBake idea (procedural OppositeCorners synthesis) is the *better* path — not a future "tool" — drove the pivot.
+
+### What changed
+
+| Before (CONTEXT D-28..D-46) | After (this supersession) |
+|---|---|
+| `TetraTileLayoutTetra5Horizontal` + `TetraTileLayoutTetra5Vertical` ship as NEW separate classes | The existing `TetraTileLayoutTetraHorizontal`/`TetraTileLayoutTetraVertical` (Phase 1) **gain load-time synthesis** of the 5th OppositeCorners archetype. Auto-detect 4-vs-5-tile sources. **No separate Tetra5 classes ship.** |
+| `needs_diagonal_overlay() -> bool` virtual on base; `_overlay_layer` lazily skipped for layouts that return `false` | `_overlay_layer` is **deleted entirely**. `needs_diagonal_overlay()` virtual is removed. Every v0.2 layout renders via single-layer 5-archetype dispatch. `AtlasSlot.diagonal_complement_atlas_coords` is removed. |
+| Tetra4 (Phase 1) keeps its v0.1 overlay rendering; only Tetra5/other layouts skip overlay | Tetra4 **changes rendering path** to load-time synthesis. Output is bit-identical to v0.1 overlay composition for masks 6/9 (verified via pixel-hash test). Breaking change for any code reading `_overlay_layer` directly; CHANGELOG entry covers it. |
+| TETRA5-01..05 requirements added in Phase 2 | TETRA-SYNTH-01..06 requirements replace them in REQUIREMENTS.md |
+
+### Decisions superseded
+
+- **D-28** (append Tetra5H+V as 6th layout in Phase 2) → REPLACED. No separate Tetra5 classes. Tetra*Horizontal/Vertical gain synthesis.
+- **D-29** (class root name `Tetra5`) → MOOT. No separate class.
+- **D-30, D-32, D-46** (canonical paint anchoring for Tetra5's mask 6 vs mask 9) → STILL APPLY but to the synthesized OppositeCorners, not a separate class. Synthesis is parameterized by these conventions.
+- **D-33** (`needs_diagonal_overlay() -> bool` virtual + lazy overlay skip) → REPLACED by full overlay-layer deletion (TETRA-SYNTH-04). The virtual is removed; not needed.
+- **D-36** (Tetra5 atlas slot order = `[Fill, Inner, Border, Outer, OppositeCorners]`) → STILL APPLIES. Artists who hand-author 5 tiles use this order. Synthesis writes the OppositeCorners to slot 4 in the runtime atlas. Auto-detect: 4-tile source → synthesize; 5-tile source → use slot 4 directly.
+- **D-39** (Tetra5Horizontal extends Tetra4Horizontal; Tetra5Vertical extends Tetra5Horizontal) → MOOT. No subclass needed. Single class auto-detects.
+- **D-40** (TETRA5-* requirement IDs) → REPLACED by TETRA-SYNTH-01..06.
+- **D-41** (Phase 2 success criterion expanded for Tetra5) → REPLACED by Phase 2 success criteria 6, 7, 8, 9 (synthesis pixel-identity, overlay removal, auto-detect, collision support).
+- **D-43** (`update_configuration_warnings()` for malformed Tetra5 atlases) → STILL APPLIES with adjusted scope. Now warns on auto-detect ambiguity (e.g., `5 × 1` atlas where slot 4 is empty/identical-to-fill — the artist intended Tetra4 but accidentally added a 5th column). Warning text adjusts to the auto-detect framing.
+
+### Decisions still in force unchanged
+
+- D-31 (5-tile is the canonical convention; reject asymmetric 6-tile)
+- D-34..D-35 (single-grid pipeline unchanged)
+- D-37..D-38 (compute_mask + atlas dispatch via Vector2i unchanged)
+- D-42 (mask 0 short-circuit unchanged)
+- D-44..D-45 (marching-squares cross-references; regression-suite protections — both still apply to all v0.2 layouts)
+- All four originally-planned native layouts (DualGrid16, Wang2Edge, Wang2Corner, Min3x3) ship as planned.
+
+### New decisions (Phase 2 plan should pick these up)
+
+- **D-47: Tetra layouts auto-detect source atlas tile count.** `TetraTileLayoutTetraHorizontal` reads `TileSetAtlasSource.get_atlas_grid_size()` at contract-load. If width=4 (or height=4 for vertical): synthesize. If width=5 (or height=5): use slot 4 directly. Anything else: `update_configuration_warnings()` flags it.
+- **D-48: Synthesis target lives in an internal runtime TileSet on `_primary_layer`.** User's source `tile_set` is never mutated. The synthesized atlas is allocated at `atlas_contract` setter time, freed when the contract changes. Deterministic — same source atlas + same layout → bit-identical synthesis output.
+- **D-49: Synthesis copies collision/occlusion/navigation polygons from source archetypes to the synthesized OppositeCorners tile.** Two source-tile collision polygon sets are translated to the diagonal positions on the synthesized tile. Animation frames, custom data layers, probability weights, and Y-sort origin are NOT copied (explicitly out of scope for v0.2 synthesized tiles per TETRA-SYNTH-03; documented in DOC-03 as a layout-choice tradeoff).
+- **D-50: Pixel-identity verification gate for Phase 2 plan.** A test renders v0.1's overlay-composed Tetra4 vs synthesis-produced Tetra4 for masks 6 and 9 and asserts pixel-hash equality. Failure blocks merge.
+- **D-51: Overlay-layer code deletion is a breaking change documented in CHANGELOG.** `_overlay_layer`, `_OVERLAY_LAYER_NAME`, `_paint_overlay_for_slot()`, and `AtlasSlot.diagonal_complement_atlas_coords` are removed. Any external code reading these breaks. Per the user's breaking-changes policy (CLAUDE.md, PROJECT.md), this proceeds without compat shims.
+- **D-52: Tetra5 (artist-authored 5th tile) is preserved as a USE CASE, not a separate class.** Artists who want a hand-drawn distinct OppositeCorners author 5 tiles in their atlas; auto-detect picks them up. Bundled `tetra_5_horizontal.png` and `tetra_5_vertical.png` greybox templates ship for this case (TETRA-SYNTH-06).
+
+### What this means for the Phase 2 planner
+
+- Drop "ship Tetra5Horizontal/Tetra5Vertical as new classes" from the plan
+- Add "rewrite TetraTileLayoutTetraHorizontal/Vertical to synthesize 5th tile + auto-detect 4-vs-5"
+- Add "delete overlay layer code path from TetraTileMapLayer + AtlasSlot"
+- Add "pixel-identity test for synthesis output"
+- The 4 originally-planned native layouts (DualGrid16, Wang2Edge, Wang2Corner, Min3x3) ship unchanged
+- Wave breakdown suggestion (planner free to recompose):
+  - Wave 1: synthesis machinery (Image.blit_rect helper, runtime TileSet construction, collision polygon copy) + delete overlay layer path
+  - Wave 2: rewrite Tetra Horizontal/Vertical to use synthesis (auto-detect, bit-identical output verification)
+  - Wave 3: 4 originally-planned native layouts in parallel
+  - Wave 4: 5-tile templates + bundled fallback TileSets + visual regression + LOC checkpoint
