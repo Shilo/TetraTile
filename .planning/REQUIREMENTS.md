@@ -46,8 +46,10 @@ The Resource hierarchy that lets every supported atlas convention plug into the 
 
 The Penta layout is the addon's signature 5-archetype convention. Per the Phase 2 architectural pivot (2026-04-26): one merged class with `axis: Axis` enum and `tile_count: TileCountMode` enum (auto-detect of 1/2/3/4/5 source-tile-per-strip modes). The Phase 1 separate `PentaTileLayoutPentaHorizontal`/`PentaTileLayoutPentaVertical` classes are deleted in favor of unified `PentaTileLayoutPenta`.
 
-- [ ] **PENTA-01**: Single `PentaTileLayoutPenta` subclass with `axis: Axis = HORIZONTAL` enum (members: `HORIZONTAL`, `VERTICAL`). Slot 0 is always `IsolatedCell`; subsequent slots (1-4) progressively add `Fill`, `Border`, `InnerCorner`, `OppositeCorners` based on `tile_count` mode. **OuterCorner is implicit** — synthesized from slot 0's corners across all modes; never has its own slot. Strip axis is X for HORIZONTAL, Y for VERTICAL.
-- [ ] **PENTA-02**: `tile_count: TileCountMode` enum (members: `AUTO = 0`, `AUTO_STRIP`, `ONE = 1`, `TWO = 2`, `THREE = 3`, `FOUR = 4`, `FIVE = 5`) on the same class. `AUTO` does dimension-only detection (cheapest, all strips share mode). `AUTO_STRIP` does per-strip detection (each strip independently 1-5). Explicit numeric values skip detection.
+- [x] **PENTA-01
+**: Single `PentaTileLayoutPenta` subclass with `axis: Axis = HORIZONTAL` enum (members: `HORIZONTAL`, `VERTICAL`). Slot 0 is always `IsolatedCell`; subsequent slots (1-4) progressively add `Fill`, `Border`, `InnerCorner`, `OppositeCorners` based on `tile_count` mode. **OuterCorner is implicit** — synthesized from slot 0's corners across all modes; never has its own slot. Strip axis is X for HORIZONTAL, Y for VERTICAL.
+- [x] **PENTA-02
+**: `tile_count: TileCountMode` enum (members: `AUTO = 0`, `AUTO_STRIP`, `ONE = 1`, `TWO = 2`, `THREE = 3`, `FOUR = 4`, `FIVE = 5`) on the same class. `AUTO` does dimension-only detection (cheapest, all strips share mode). `AUTO_STRIP` does per-strip detection (each strip independently 1-5). Explicit numeric values skip detection.
 - [ ] **PENTA-03**: When the demo scene uses the default Penta layout (axis=HORIZONTAL, tile_count=AUTO) on a Penta-mode atlas, rendered output is visually regression-tested against a captured baseline (synthesis output is the authoritative reference; the slot ordering changed from v0.1 so v0.1 atlases are NOT bit-compat).
 
 ### Native Layouts (NATIVE)
@@ -80,7 +82,8 @@ Phase 2 architectural pivot (2026-04-26, locked after fourth iteration): single 
 
 Auto-detection reads `TileSetAtlasSource.get_atlas_grid_size()` along the strip axis (X for HORIZONTAL, Y for VERTICAL). Other axis sizes (0, 6+) trigger `update_configuration_warnings()`. **The runtime overlay layer is removed entirely.** Every v0.2 layout renders via single-layer dispatch. RPG Maker family deferred to v0.3+ (see `.planning/research/layouts/RPG_MAKER.md`).
 
-- [ ] **PENTA-SYNTH-01**: `PentaTileLayoutPenta` exposes `tile_count: TileCountMode` enum with values `AUTO = 0`, `AUTO_STRIP`, `ONE = 1`, `TWO = 2`, `THREE = 3`, `FOUR = 4`, `FIVE = 5`. Explicit numeric values match the actual tile count per strip (so `int(mode)` returns the count for ONE/TWO/THREE/FOUR/FIVE). AUTO and AUTO_STRIP trigger detection; explicit values skip detection and validate atlas content (warn on mismatch via `update_configuration_warnings()`).
+- [x] **PENTA-SYNTH-01
+**: `PentaTileLayoutPenta` exposes `tile_count: TileCountMode` enum with values `AUTO = 0`, `AUTO_STRIP`, `ONE = 1`, `TWO = 2`, `THREE = 3`, `FOUR = 4`, `FIVE = 5`. Explicit numeric values match the actual tile count per strip (so `int(mode)` returns the count for ONE/TWO/THREE/FOUR/FIVE). AUTO and AUTO_STRIP trigger detection; explicit values skip detection and validate atlas content (warn on mismatch via `update_configuration_warnings()`).
 - [ ] **PENTA-SYNTH-02**: AUTO-mode detection (uniform across all strips):
   1. Read atlas axis size: `get_atlas_grid_size().x` (HORIZONTAL) or `.y` (VERTICAL)
   2. Map axis size → mode: `1 → ONE`, `2 → TWO`, `3 → THREE`, `4 → FOUR`, `5 → FIVE`
@@ -111,7 +114,8 @@ Auto-detection reads `TileSetAtlasSource.get_atlas_grid_size()` along the strip 
   - Atlas axis is 0 or 6+ in AUTO/AUTO_STRIP mode
   - `tile_count` is an explicit value (ONE..FIVE) and the atlas axis size disagrees
   - Strip has gaps in AUTO_STRIP mode (e.g., slot 1 populated but slot 0 empty)
-- [ ] **PENTA-SYNTH-09**: `PentaTileLayoutPenta` hides the inherited `bitmask_template: Texture2D` from the inspector via `_validate_property` (auto-resolved per axis × mode from class-level constant lookup). Bundled bitmask templates ship under `addons/penta_tile/layouts/penta_tile_layout_penta/` (sibling to the `.gd` file) for all 5 modes × 2 axes:
+- [x] **PENTA-SYNTH-09
+**: `PentaTileLayoutPenta` hides the inherited `bitmask_template: Texture2D` from the inspector via `_validate_property` (auto-resolved per axis × mode from class-level constant lookup). Bundled bitmask templates ship under `addons/penta_tile/layouts/penta_tile_layout_penta/` (sibling to the `.gd` file) for all 5 modes × 2 axes:
   - `one_horizontal.png`, `one_vertical.png`
   - `two_horizontal.png`, `two_vertical.png`
   - `three_horizontal.png`, `three_vertical.png`

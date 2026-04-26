@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md (Wave 2 architectural sweep)
-last_updated: "2026-04-26T19:50:38.683Z"
+stopped_at: Completed 02-03-PLAN.md (Wave 3 Penta layout merge)
+last_updated: "2026-04-26T20:01:13.414Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 15
-  completed_plans: 9
-  percent: 60
+  completed_plans: 11
+  percent: 73
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-25 after v0.2 pivot to layout library
 ## Current Position
 
 Phase: 02 (native-layouts) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-04-26
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 73%
 
 > Out-of-band progress: 5 of 8 greyboxed template PNGs + the generator script shipped in commit e86036f as part of the discovery pass. Counted as TEMPLATE-01 + TEMPLATE-03 covered. The remaining 3 templates (Blob47Godot, TilesetterWang15, TilesetterBlob47) ship in Phase 3 once their slot tables are transcribed from TileBitTools.
 
@@ -56,6 +56,7 @@ Progress: [██████░░░░] 60%
 *Updated after each plan completion*
 | Phase 02 P01 | 147 | 2 tasks | 3 files |
 | Phase 02 P02 | 539 | 3 tasks | 8 files |
+| Phase 02 P03 | 331 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,9 @@ Recent decisions affecting current work:
 - PentaTileSynthesis utility class ships as RefCounted (@tool); synthesis path uses needs_synthesis() virtual to avoid forward type reference to PentaTileLayoutPenta (Wave 3)
 - Tasks 2.2 and 2.3 combined into one atomic commit (b6349fa) — synthesis wiring required touching penta_tile_layout.gd (needs_synthesis virtual) which was already in the atomic sweep
 - _DEFAULT_LAYOUT singleton deleted atomically with _resolve_layout rewrite in same commit per CONTEXT.md D-68 constraint
+- needs_synthesis() overrides base to return true in PentaTileLayoutPenta — resolves Wave 2 stub for synthesis branch in PentaTileMapLayer
+- _SLOT_* consts use literal ints in PentaTileLayoutPenta — GDScript 2 class-level const cannot reference another class's const at parse time
+- Phase 1 PentaTileLayoutPentaHorizontal + Vertical merged into single PentaTileLayoutPenta with axis + tile_count enums (Wave 3 complete)
 
 ### Pending Todos
 
@@ -128,8 +132,8 @@ Items acknowledged and carried forward as v2 requirements (see REQUIREMENTS.md v
 
 ## Session Continuity
 
-Last session: 2026-04-26T19:50:32.486Z
-Stopped at: Completed 02-02-PLAN.md (Wave 2 architectural sweep)
+Last session: 2026-04-26T20:01:13.408Z
+Stopped at: Completed 02-03-PLAN.md (Wave 3 Penta layout merge)
 Resume file: None
 
 **Completed Phase:** 01 (Contract Skeleton + Penta Layouts) — 5/5 plans, 14/14 requirements, 26/26 automated tests PASS — 2026-04-26
