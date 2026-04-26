@@ -45,7 +45,7 @@ addons/penta_tile/
 
 This project uses Get Shit Done (GSD) for structured execution. The phases of v0.2.0 are:
 
-1. **Contract Skeleton + Tetra Layouts** ✅ DONE — `PentaTileAtlasContract` + `PentaTileLayout` base + `AtlasSlot`; Tetra Horizontal + Vertical layouts.
+1. **Contract Skeleton + Penta Layouts** ✅ DONE — `PentaTileAtlasContract` + `PentaTileLayout` base + `AtlasSlot`; `PentaTileLayoutPentaHorizontal` + `PentaTileLayoutPentaVertical` (archived under `01-contract-skeleton-tetra-layouts/` for historical continuity).
 2. **Native Layouts** — DualGrid16, Wang2Edge, Wang2Corner, Min3x3 + Penta layouts gain load-time synthesis of the 5th `OppositeCorners` archetype (drops the runtime overlay layer entirely).
 2.1 **Single-Tile Layout (Prototyping)** — `PentaTileLayoutSingleTile` slices ONE source image into 5 archetypes at load time.
 3. **TileBitTools-Decoded Layouts** — Blob47Godot, TilesetterWang15, TilesetterBlob47 with attribution.
