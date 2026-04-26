@@ -28,39 +28,55 @@ Painting tiles with the native `TileMapLayer` API produces correct dual-grid aut
 
 ### Active
 
-<!-- This milestone: expand the contract. -->
+<!-- This milestone: layout library — every popular autotiling atlas convention is a pluggable Resource. -->
 
-- [ ] Atlas contract redesign — drop the strict 4-tile core; declare-what-you-have model
-- [ ] Per-tile configurability knobs baked into the contract (rotation lock, variation rules)
-- [ ] Y-axis variation support, riding Godot's built-in TileSet alternate-tile probability
-- [ ] Top-tile support — designated top-edge visuals for platformer-style caps
-- [ ] Non-rotating tileset support — per-direction tile authoring (T/B/L/R not interchangeable)
-- [ ] Updated demo scene showcasing all new features in one place
-- [ ] GitHub release tagged with the next simple semver number (0.2.0)
+- [ ] Atlas contract Resource (`TetraTileAtlasContract`) hosting a typed `layout: TetraTileLayout` reference
+- [ ] `TetraTileLayout` base class with virtual `compute_mask` + `mask_to_atlas` dispatch
+- [ ] Tetra Horizontal + Tetra Vertical layouts (v0.1 inheritance, ship as the addon's two defaults)
+- [ ] DualGrid16 + Wang2Edge + Wang2Corner layouts (TetraTile-native conventions)
+- [ ] Blob47Godot + TilesetterWang15 + TilesetterBlob47 layouts (slot tables transcribed from TileBitTools, MIT, attributed)
+- [ ] Per-layout `template_image: Texture2D` rendered as inline inspector preview
+- [ ] Per-layout `fallback_tile_set: TileSet` used when `TetraTileMapLayer.tile_set` is null (instant prototyping)
+- [ ] Per-layout `description: String` (multiline, inspector-editable) plus class-level `##` doc-comment
+- [ ] Greyboxed template PNGs for every shipped layout (5 already shipped; 3 pending TBT slot-table transcription)
+- [ ] Updated demo scene showcasing all 8 layouts (runtime switching or side-by-side)
+- [ ] README "Layouts" section + "Upgrading from 0.1.x" + "Authoring a Custom Layout"
+- [ ] `addons/tetra_tile/ATTRIBUTION.md` crediting TileBitTools (MIT)
+- [ ] GitHub release tagged `v0.2.0`
 
 ### Out of Scope
 
 <!-- Explicitly deferred for this milestone. -->
 
-- TetraBake (procedural 5th edge/diagonal connector tile generation) — Parking-lot idea; not needed to unblock author's own games
-- Tileset converter (Wang/blob → TetraTile atlas) — Authoring tooling, deferred until contract design is settled
-- Outer transition tile support (grass→dirt, multi-terrain) — Distinct R&D track; not a top pain in current games
-- Shader fallback for diagonal compositing — Performance optimization; demo-scale targets don't require it
-- Collision authoring tools / auto-collision generation — Existing TileSet-physics path is enough for now
-- MkDocs documentation site — GitHub README is sufficient for the private audience
-- Godot Asset Library distribution — GitHub releases only this milestone
-- Formal automated test suite (GUT or similar) — Quality bar is "works in my game"
-- Large-map performance benchmarking (>10k cells) — Demo-scale (~100–1k cells) is the target
-- Backwards compatibility for v0.1.0 atlases / API — Pre-1.0; breaking changes accepted
+- Y-axis variation support — Pushed to a future milestone; needs its own discussion (was originally planned for v0.2 but the layout library re-prioritized first)
+- Top-tile support — Pushed to a future milestone; needs design after layout library lands
+- Non-rotating tileset feature — Largely *delivered* by the DualGrid16 / Wang2Corner / Wang2Edge layouts; any remaining "non-rotating" needs roll into a future milestone if surfaced
+- RPG Maker A1/A2/A4 subtile composition — Architecturally reserved (`TetraTileLayout` slot exists) but the quarter-tile compositor is a v0.3+ refactor
+- Tiled `.tsx` / LDtk `.ldtk` rule importers — Both editors store autotile rules in project files, not atlases; full support requires rule-importer infrastructure out of scope here
+- Excalibur / jaconir Blob 47 convention — Web-game indie convention; no demonstrated Godot adoption; dropped
+- Stormcloak / OpenGameArt CR31 community blob variants — Dropped per user direction; insufficient adoption signal
+- Godot `MATCH_SIDES` mask layout — Engine semantics disputed in [Godot issue #79411](https://github.com/godotengine/godot/issues/79411); skipped until engine clarifies
+- TetraBake (procedural 5th-tile composition) — Parking-lot idea; not needed to unblock author's games
+- Tileset converter (Wang/blob → TetraTile) — Authoring tooling deferred
+- Outer transition tile support (multi-terrain) — Distinct R&D track
+- Shader fallback for diagonal compositing — Performance optimization not needed at demo scale
+- Collision authoring / auto-collision generation — TileSet-physics path is sufficient
+- MkDocs documentation site — GitHub README is enough
+- Godot Asset Library distribution — GitHub-only this milestone
+- Formal automated test suite (GUT) — "Works in my game" quality bar
+- Large-map performance benchmarking (>10k cells) — Demo-scale only
+- Backwards compatibility for v0.1.0 atlases / API — Pre-1.0; breaking changes accepted with migration notes
+- Custom layout authoring polished surface (`EditorInspectorPlugin`) — Subclassing `TetraTileLayout` works but is documented as experimental; no editor polish
 
 ## Context
 
 - Existing implementation is ~261 LOC of GDScript in a single class plus a working demo scene with a `CharacterBody2D` player and runtime drag-paint script. No external dependencies beyond Godot 4.6.
 - Architecture is intentionally lean: no persistent coordinate cache, no signal fanout, no watchers — `_update_cells()` recomputes affected masks on demand and writes directly to two internal `TileMapLayer`s.
-- Codebase analysis (`.planning/codebase/CONCERNS.md`) flagged no critical bugs or security issues. The main concerns are absence of tests, undocumented map-size limits, and the fixed 4-tile atlas constraint — the last of which this milestone is explicitly tackling.
-- The user is comparing TetraTile against TileMapDual; TetraTile's selling point has been minimalism and the 4-tile contract. Expanding the contract risks blurring that distinction, so the redesign should preserve "smaller and leaner than TileMapDual" as a guiding constraint even as new modes appear.
-- Top-tile and non-rotating-tileset support are intertwined: top tiles are a specific case of breaking the rotational symmetry assumption baked into the current 16-state table. The user explicitly flagged this pair as needing heavy research before implementation.
-- Variation should reuse Godot's existing `TileSetAtlasSource` alternate-tile probability mechanism rather than introducing custom RNG, to stay aligned with the engine and let users tune variation in the existing TileSet inspector.
+- v0.2 pivots from "expand the contract for variation/top/non-rotating" to "ship a library of pluggable layout Resources covering every popular Godot autotiling atlas convention." The user's pain point shifted: the strict 4-tile atlas isn't just visually limiting, it's incompatible with atlases authored anywhere else (Tilesetter, OpenGameArt 47-blob, Godot stock terrain templates, etc.). Solving the layout zoo solves the lock-in.
+- Layout-library research lives in `.planning/research/layouts/` — TAXONOMY (24 layouts catalogued), EDITORS (Tiled / LDtk / Tilesetter / Unity / RPG Maker conventions), GODOT_TERRAIN (the engine's stock terrain mechanics + why TetraTile bypasses them), MASK_UNIFICATION (architecture: polymorphic layout Resource), TILESETTER_AND_GODOT (live-doc audit), TILEBITTOOLS (TBT addon audit + slot tables we transcribe), COMPARISON (the artist-facing side-by-side reference).
+- TileBitTools (MIT, dandeliondino) already decoded the Tilesetter slot tables. TetraTile transcribes those with attribution rather than empirically fingerprinting, eliminating a research bottleneck.
+- The user is comparing TetraTile against TileMapDual; TetraTile's selling point has been minimalism and the 4-tile contract. The layout library expands surface area but keeps the runtime contract small (one base class + 8 subclasses, ~520 LOC estimated total — still well under TileMapDual's ~700–900 LOC).
+- Variation, top tiles, and non-rotating tilesets pushed to future milestones. Non-rotating is largely *delivered* by the new DualGrid16 / Wang2Corner / Wang2Edge layouts since those are explicitly per-direction-authored. Variation and top tiles need their own discussion against the new layout shape.
 
 ## Constraints
 
@@ -75,14 +91,23 @@ Painting tiles with the native `TileMapLayer` API produces correct dual-grid aut
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Milestone goal is "expand the contract", not "ship 1.0 / harden v0.1" | Author's own games are blocked on visual repetition and platformer-top friction, not on the contract being unstable | — Pending |
-| Y-axis variation rides Godot's built-in `TileSetAtlasSource` alternate-tile probability | Avoid reinventing RNG; users author variation in the existing TileSet inspector | — Pending |
-| Drop the strict 4-tile atlas core; move to a "declare what you have" contract with per-tile knobs | User wants atlas-level configurability (rotation lock, variation rules); current fixed contract blocks top-tile and non-rotating support | — Pending |
-| Top tiles + non-rotating tilesets treated as one R&D track | Top tiles are a specific case of breaking rotational symmetry — same underlying redesign | — Pending |
-| Breaking changes allowed; v0.1 atlases may require migration | Pre-1.0 and audience is the author's own games; demo can be updated alongside | — Pending |
+| v0.2 pivots from "expand the contract" to "layout library" | Layout-library work surfaces the design questions for top tiles + variation + non-rotating; better to land the contract surface area first and discuss those features against a stable foundation | — Pending |
+| Layout is a typed `Resource` subclass (`TetraTileLayout`) attached to `TetraTileAtlasContract`, NOT a `RotationMode` enum | The strategy pattern absorbs RPG Maker subtile composition (and other future mask systems) without modifying `_update_cells()`; analyzed and recommended in `.planning/research/layouts/MASK_UNIFICATION.md` | — Pending |
+| Each layout Resource exposes `template_image: Texture2D` + `fallback_tile_set: TileSet` for inspector preview and zero-config prototyping | Drop a fresh `TetraTileMapLayer` into a scene with just a layout Resource and start painting — best-in-class onboarding UX, no `EditorInspectorPlugin` required | — Pending |
+| Tilesetter slot tables decoded from TileBitTools (MIT) rather than fingerprinted | TBT already published `tilesetter_blob.tres` and `tilesetter_wang.tres` with slot maps; transcribing with attribution is faster and lower-risk than empirical fingerprinting | — Pending |
+| Tilesetter Wang is 15 tiles in a 5×3 atlas with one stray fill, not 16 in 4×4 | TBT's verified slot table; earlier secondary-source claim was wrong | — Pending |
+| Tilesetter Blob is 11×5 with discrete sub-block gaps, not 7×8 with trailing unused cells | TBT's verified slot table; matches user's reference images | — Pending |
+| Variation, top tiles, and "non-rotating" pushed to a future milestone (post-v0.2) | DualGrid16 / Wang2Corner / Wang2Edge layouts cover the asymmetric-art case the user wanted; variation and platformer top tiles need design discussion against the new layout-library shape | — Pending |
+| Excalibur / jaconir / Stormcloak / OpenGameArt CR31 dropped from layout library | No demonstrated Godot adoption; user only cares about Godot-native and Tilesetter conventions | — Pending |
+| Godot `MATCH_SIDES` skipped | Engine semantics disputed (issue #79411); revisit when engine clarifies | — Pending |
+| RPG Maker A2/A4 architecturally reserved but deferred | Quarter-tile subtile composition doesn't fit the unified `_update_cells` dispatch — it's a separate pipeline; v0.3+ work | — Pending |
+| Greyboxed templates ship via committed `_generate_greybox_templates.py` (Pillow) | Reproducible, regenerable; no opaque pixel data; user edits the silhouettes into final art | — Pending |
+| TetraTile does NOT integrate with Godot's stock terrain peering bits | Defeats the v0.1 selling point of "no manual bitmask authoring." Comparison and reasoning in `.planning/research/layouts/GODOT_TERRAIN.md` | — Pending |
+| TileBitTools' `EditorInspectorPlugin` architecture explicitly NOT copied | Their addon is ~3,800 LOC of edit-time UI; TetraTile's identity is small runtime + zero editor polish | — Pending |
+| Breaking changes allowed; v0.1 atlases may require migration | Pre-1.0; audience is the author's own games | — Pending |
 | GitHub release only; no Asset Library, no MkDocs | Audience is private; discoverability and full docs site are not goals this milestone | — Pending |
-| Quality bar is "works in my game" — no formal test suite, no perf benchmarks | Keeps milestone scope tight on the contract redesign and three feature pillars | — Pending |
-| One expanded demo scene over multiple per-feature demos | Simpler maintenance; surface area stays small as features land | — Pending |
+| Quality bar is "works in my game" — no formal test suite, no perf benchmarks | Keeps milestone scope tight on the layout library | — Pending |
+| One expanded demo scene over multiple per-feature demos | Simpler maintenance; surface area stays small as layouts land | — Pending |
 
 ## Evolution
 
@@ -102,4 +127,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-25 after initialization*
+*Last updated: 2026-04-25 after v0.2 pivot to layout library*

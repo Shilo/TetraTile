@@ -1,14 +1,18 @@
 # Roadmap: TetraTile v0.2.0
 
-**Milestone:** v0.2.0 — "Expand the Contract"
-**Created:** 2026-04-25
+**Milestone:** v0.2.0 — "Layout Library + Preview Fallback"
+**Created:** 2026-04-25 (re-spun after pivot from "expand the contract")
 **Granularity:** standard (5 phases)
 
 ## Overview
 
-TetraTile v0.1.0 ships a fixed 4-tile dual-grid autotiler with rotational symmetry baked in. v0.2.0 expands the addon's atlas contract along three intertwined axes — Y-axis variation, top tiles, and non-rotating tilesets — without losing the "smaller and leaner than TileMapDual" identity. The five-phase plan lands the typed `TetraTileAtlasContract` Resource first to gate everything else, then builds variation, non-rotating mode, and top tiles + custom data layers as additive features that read through the contract. A consuming fifth phase refreshes the demo and cuts the GitHub release.
+TetraTile v0.1.0 ships a single hardcoded atlas convention — 4 tiles in the "tetra" order (Fill / Inner Corner / Border / Outer Corner). Atlases authored anywhere else (Tilesetter, OpenGameArt's 47-blob, Godot's stock terrain templates, the broader pixel-art ecosystem) don't drop in.
 
-The contract is the keystone: every feature reads through it, every migration path passes through it, and the LOC budget (`< TileMapDual`) is enforced against it. The phases are ordered to surface the highest-risk pitfalls (alt-tile bit packing, variation determinism, non-rotating table generation) early so they land before the cumulative complexity of Phase 4.
+v0.2.0 ships a **library of pluggable layout Resources**. Every popular Godot autotiling atlas convention becomes a `TetraTileLayout` subclass. Drop a fresh `TetraTileMapLayer` into a scene, attach a layout Resource, and either bring your own atlas or use the layout's bundled fallback TileSet for instant prototyping. No bitmask authoring per tile, no peering bits.
+
+The five-phase plan lands the contract + base layout class first (gates everything), then ships the three TetraTile-native layouts (DualGrid16, Wang2Edge, Wang2Corner), then transcribes TileBitTools' MIT-licensed slot tables for the three Blob/Wang layouts (Blob47Godot, TilesetterWang15, TilesetterBlob47), then wires the fallback-TileSet routing for prototyping UX, then closes with a demo refresh and the GitHub release.
+
+The original v0.2 feature pillars (Y-axis variation, top tiles, non-rotating tilesets) are now in v2 backlog. "Non-rotating" is largely *delivered* by the new layouts since DualGrid16 / Wang2Corner / Wang2Edge are explicitly per-direction-authored. Variation and top tiles need their own design discussion against the new layout shape.
 
 ## Phases
 
@@ -16,73 +20,99 @@ The contract is the keystone: every feature reads through it, every migration pa
 - Integer phases (1, 2, 3, 4, 5): Planned milestone work
 - Decimal phases (e.g. 2.1): Reserved for urgent inserts (none currently)
 
-- [ ] **Phase 1: Contract Skeleton** - Introduce `TetraTileAtlasContract` + `AtlasSlot` Resources, route SYMMETRIC mode through the contract, fall back to v0.1 hardcoded behavior when null.
-- [ ] **Phase 2: Y-Axis Variation** - Add deterministic per-cell `_pick_alternative` + `_pack_alternative` helper; consume `TileData.probability`; demo atlas extended with alternates.
-- [ ] **Phase 3: Non-Rotating Mode** - Add `RotationMode.NON_ROTATING` dispatch, `mask_slots[16]`, generated `_build_lookup_table`, diagonal complement, validator, mask-0 special case.
-- [ ] **Phase 4: Top Tiles + Custom Data Layers + v0.1 Detection** - Add lazy `_top_layer`, `top_overlay_slot`, `tetra_role`/`tetra_lock_rotation` custom_data_layers, and v0.1-shape detection branch.
-- [ ] **Phase 5: Demo Refresh + Release Prep** - One updated demo scene, README "Upgrading from 0.1.x", `plugin.cfg` bump, CHANGELOG, `v0.2.0` tag, GitHub Release zip.
+- [ ] **Phase 1: Contract Skeleton + Tetra Layouts** — Introduce `TetraTileAtlasContract` + `TetraTileLayout` base + `AtlasSlot`. Ship Tetra Horizontal + Tetra Vertical as the first two layout subclasses. v0.1 visuals continue unchanged via the bundled default contract OR the null-fallback path.
+- [ ] **Phase 2: Native Layouts** — Ship DualGrid16, Wang2Edge, Wang2Corner subclasses with hand-authored slot tables. Each gets a bundled fallback TileSet so the prototyping UX works for these layouts.
+- [ ] **Phase 3: TileBitTools-Decoded Layouts** — Transcribe slot tables from TBT's MIT-licensed `tilesetter_blob.tres`, `tilesetter_wang.tres`, and the matching Godot blob template `.tres`. Ship Blob47Godot, TilesetterWang15, TilesetterBlob47. Generate the 3 missing template PNGs from the slot tables. Add `ATTRIBUTION.md`.
+- [ ] **Phase 4: Fallback Routing** — Wire `TetraTileMapLayer` to use `layout.fallback_tile_set` when `tile_set == null`. Verify all 8 layouts paint correctly with their bundled fallback. Visual regression on the demo scene.
+- [ ] **Phase 5: Demo Refresh + Documentation + Release** — One updated demo scene showcasing all 8 layouts, README sections (Layouts / Upgrading / Authoring a Custom Layout), CHANGELOG, plugin.cfg bump, GitHub Release zip with `v0.2.0` tag.
 
 ## Phase Details
 
-### Phase 1: Contract Skeleton
-**Goal**: A typed `TetraTileAtlasContract` Resource is the source of truth for atlas shape; SYMMETRIC mode reads through it; v0.1 scenes that don't migrate continue to render unchanged.
-**Depends on**: Nothing (first phase)
-**Requirements**: CONTRACT-01, CONTRACT-02, CONTRACT-03, CONTRACT-04, CONTRACT-05, CONTRACT-06
+### Phase 1: Contract Skeleton + Tetra Layouts
+
+**Goal**: A typed `TetraTileAtlasContract` Resource owning a `TetraTileLayout` reference is the source of truth for atlas shape; v0.1 scenes that don't migrate continue to render unchanged via either the bundled default contract OR the null-fallback path.
+
+**Depends on**: Nothing (first phase).
+
+**Requirements**: CONTRACT-01, CONTRACT-02, CONTRACT-03, CONTRACT-04, CONTRACT-05, LAYOUT-01, LAYOUT-02, LAYOUT-03, LAYOUT-04, LAYOUT-05, TETRA-01, TETRA-02, TETRA-03, PREVIEW-01 (the `template_image` Texture2D field renders inline; the consumer-side fallback routing lands in Phase 4)
+
 **Success Criteria** (what must be TRUE):
-  1. Setting `atlas_contract` to the bundled default contract on the demo scene produces visuals bit-identical to v0.1 (visual regression: side-by-side screenshot of the same painted layout matches pixel-for-pixel for all 16 mask states).
-  2. Leaving `atlas_contract` null on a v0.1-style scene produces visuals bit-identical to v0.1 (the hardcoded fallback path renders the canonical 4-tile atlas correctly).
-  3. Reassigning `atlas_contract` to the same Resource value triggers zero rebuilds (idempotence guard verified by counting `_queue_rebuild` calls in a debug build).
-  4. Editing a property on a connected `TetraTileAtlasContract` Resource triggers exactly one rebuild per edit (no signal storm — `Resource.changed` is connected once, disconnected before reassignment).
-  5. The `addons/tetra_tile/` LOC count after Phase 1 (Resources included) stays under the cumulative budget on the way to "< TileMapDual" — checkpoint logged in the phase summary.
+1. Setting `atlas_contract` to the bundled default (Tetra Horizontal layout) on the demo scene produces visuals bit-identical to v0.1 (visual regression: side-by-side screenshot of the same painted layout matches pixel-for-pixel for all 16 mask states).
+2. Leaving `atlas_contract = null` on a v0.1-style scene produces visuals bit-identical to v0.1 (the hardcoded fallback path renders the canonical 4-tile atlas correctly).
+3. Reassigning `atlas_contract` to the same Resource value triggers zero rebuilds (idempotence guard verified by counting `_queue_rebuild` calls in a debug build).
+4. Editing a property on a connected `TetraTileAtlasContract` triggers exactly one rebuild per edit (no signal storm — `Resource.changed` is connected once, disconnected before reassignment).
+5. The TetraTileLayout base class can be subclassed; instances of `TetraTileLayoutTetraHorizontal` / `Vertical` appear correctly in the inspector picker for the contract's `layout` slot.
+6. End-of-Phase-1 LOC checkpoint: `addons/tetra_tile/` total stays well under TileMapDual's surface area; logged in the phase summary.
+
 **Plans**: TBD
 
-### Phase 2: Y-Axis Variation
-**Goal**: Users author multiple alternates per slot in Godot's stock TileSet inspector; the addon picks among them deterministically per cell coordinate so painting and rebuilding never shimmer.
-**Depends on**: Phase 1
-**Requirements**: VAR-01, VAR-02, VAR-03, VAR-04, VAR-05
+### Phase 2: Native Layouts
+
+**Goal**: Three TetraTile-native layout subclasses (DualGrid16, Wang2Edge, Wang2Corner) ship with hand-authored slot tables and bundled fallback TileSets. Each can be assigned to a `TetraTileAtlasContract` and used to paint with a matching atlas.
+
+**Depends on**: Phase 1 (the layout dispatch must exist before layout subclasses can plug in).
+
+**Requirements**: NATIVE-01, NATIVE-02, NATIVE-03, PREVIEW-02 (the bundled `fallback_tile_set` `.tres` files for the 5 native layouts), TEMPLATE-04 (visual regression for the native layouts; templates 01/03 already shipped in commit e86036f).
+
 **Success Criteria** (what must be TRUE):
-  1. Painting 100 cells of fill, then calling `rebuild()` 10 times, produces identical visuals each time (no variation shimmer — verified by capturing the visual layer's `get_cell_atlas_coords` and `get_cell_alternative_tile` after each rebuild and asserting equality).
-  2. Authoring two fill alternates with `TileData.probability` weights 1.0 and 3.0 produces a roughly 1:3 distribution across a 1000-cell painted block (statistical sanity check, not a strict assertion — visual evidence in the demo).
-  3. Changing `variation_seed` on the contract re-rolls the entire painted map (visuals differ from prior render); reverting `variation_seed` restores the original render exactly.
-  4. `_pack_alternative(alt_id, transform_flags)` round-trips: passing the packed value to `set_cell` and reading back via `get_cell_alternative_tile` returns the original packed int for `alt_id < 4096`.
-  5. Painting with `alt_id >= 4096` triggers the `assert` and halts in a debug build (asserts the bit-collision guard is wired, not silently masked).
+1. DualGrid16 layout, with a 16-tile authored atlas, paints all 16 mask states correctly across the demo (each `r*4 + c` slot renders the expected silhouette per the corner-mask convention TL=1/TR=2/BL=4/BR=8).
+2. Wang2Edge layout, with a 16-tile authored atlas, paints all 16 edge-mask states correctly (CR31 N=1/E=2/S=4/W=8). Visible difference from DualGrid16: the edge connections form lines/paths rather than filled regions.
+3. Wang2Corner layout produces visuals identical to DualGrid16 on the same atlas data — different bit naming, same silhouettes (per the COMPARISON.md disambiguation).
+4. Each native layout's bundled fallback TileSet, when used with `tile_set == fallback_tile_set` (manually assigned), renders the greybox template correctly across all 16 slots.
+5. The greyboxed templates already shipped in `addons/tetra_tile/templates/` match the layout Resources' `mask_to_atlas` tables (visual regression: paint each layout's fallback TileSet, confirm visible silhouettes match the template).
+
 **Plans**: TBD
 
-### Phase 3: Non-Rotating Mode
-**Goal**: Users can author atlases that are not rotationally symmetric (per-direction T/B/L/R tiles) by setting `rotation_mode = NON_ROTATING` and supplying `mask_slots`; the lookup table is generated mechanically from the rotating fallback to prevent transpose-vs-flip bit-drift bugs.
-**Depends on**: Phase 1, Phase 2 (variation lands first to surface transform-bit collision before non-rotating arrives)
-**Requirements**: NONROT-01, NONROT-02, NONROT-03, NONROT-04, NONROT-05
+### Phase 3: TileBitTools-Decoded Layouts
+
+**Goal**: Three layouts whose slot tables are transcribed from TileBitTools' MIT-licensed `.tres` files (Tilesetter Wang 15, Tilesetter Blob 47, Godot Blob 47) ship with attribution. Greyboxed template PNGs are generated for these three layouts from the slot tables.
+
+**Depends on**: Phase 1 (layout dispatch). Independent of Phase 2 in principle, but sequenced after to keep the dependency chain linear.
+
+**Requirements**: TBT-01, TBT-02, TBT-03, TBT-04, TEMPLATE-02, DOC-05.
+
 **Success Criteria** (what must be TRUE):
-  1. Loading a `NON_ROTATING` contract that omits mask 5 surfaces a configuration warning naming mask 5 specifically (validator output viewable in the editor inspector via `update_configuration_warnings()`).
-  2. A complete `NON_ROTATING` 16-tile directional atlas paints all 16 mask states correctly in the demo (visual inspection: each mask renders the user-supplied tile, not a rotated rotating-mode fallback).
-  3. Erasing a logic cell that drops a display cell to mask 0 clears the visual cell on the FIRST line of the paint function — even when `_resolve_slot` is set up to throw on missing slots, mask 0 never reaches the lookup table (verified by setting `mask_slots[0]` to `null` intentionally and confirming no error fires).
-  4. Masks 6 and 9 in `NON_ROTATING` mode honor `AtlasSlot.diagonal_complement_atlas_coords` and produce the two-layer composition (overlay layer paints the complement tile; visual matches a hand-built reference render).
-  5. A `NON_ROTATING` contract that supplies only 4 mask slots and leaves the rest null falls back to rotating-mode equivalents in the generated lookup table (mixed-mode authoring works; `_build_lookup_table` is generated, never hand-written).
+1. `TetraTileLayoutTilesetterWang15`'s slot table matches TBT's `tilesetter_wang.tres` row-for-row (15 entries plus the stray-fill handling); a hand-painted Tilesetter Wang atlas attached to this layout paints correctly across all 15 mask states.
+2. `TetraTileLayoutTilesetterBlob47`'s slot table matches TBT's `tilesetter_blob.tres` row-for-row (47 entries in the 11×5 atlas with sub-block gaps); a hand-painted Tilesetter Blob atlas paints correctly across all 47 mask states.
+3. `TetraTileLayoutBlob47Godot`'s slot table matches TBT's Godot template row-for-row; a 47-tile atlas authored to TBT's Godot convention paints correctly across all 47 mask states.
+4. `addons/tetra_tile/ATTRIBUTION.md` exists, credits TileBitTools by name with a link to https://github.com/dandeliondino/tile_bit_tools, copies the MIT license terms or links the upstream `LICENSE`, and identifies which TBT files were transcribed.
+5. The 3 missing template PNGs (`tilesetter_wang_15.png`, `tilesetter_blob_47.png`, `blob_47_godot.png`) are produced by `_generate_greybox_templates.py` (deterministic, regenerable) and committed alongside the layout Resources.
+
 **Plans**: TBD
 
-### Phase 4: Top Tiles + Custom Data Layers + v0.1 Detection
-**Goal**: Designated top-edge tiles render via a lazy third internal layer for platformer caps; per-tile `tetra_role` / `tetra_lock_rotation` custom data layers add per-tile overrides without bloating the contract; the v0.1-shape detection branch keeps unmigrated v0.1 scenes rendering correctly.
-**Depends on**: Phase 3 (top tiles use the same generated-lookup approach as non-rotating mode)
-**Requirements**: TOP-01, TOP-02, TOP-03, TOP-04, MIGR-03
-**Success Criteria** (what must be TRUE):
-  1. Setting `top_overlay_slot` on the contract creates a third internal `TileMapLayer` (`INTERNAL_MODE_FRONT`) lazily; leaving `top_overlay_slot` null does NOT create the layer (verified by counting child nodes on `TetraTileMapLayer`).
-  2. Painting a horizontal platform of fill cells produces top-cap visuals on the masks declared in the contract (default candidate set 4/8/12 — final set validated against the demo art before commit; player can walk along the platform and stand on the cap).
-  3. A tile tagged `tetra_lock_rotation = true` in the TileSet's custom data layer renders with `transform_flags = 0` regardless of the mask's normal rotation (per-tile filter overrides the contract's symmetric rotation).
-  4. Opening a v0.1 demo scene with the v0.2.0 addon and no `atlas_contract` set renders identically to v0.1 (the `_resolve_slot_legacy` v0.1-shape detection branch fires when `atlas_contract == null` AND the TileSet has no `tetra_role` custom data layer defined).
-  5. Adding a `tetra_role` custom data layer to a v0.1-shaped TileSet (without setting `atlas_contract`) opts that scene OUT of the v0.1-shape detection path (the absence of `tetra_role` is the explicit signal for the legacy branch).
-**Plans**: TBD
-**UI hint**: yes
+### Phase 4: Fallback Routing
 
-### Phase 5: Demo Refresh + Release Prep
-**Goal**: One updated demo scene showcases all three new features end-to-end with the existing platformer player; the GitHub Release ships a clean zip with `addons/tetra_tile/` at archive root, tagged `v0.2.0`, with README and CHANGELOG documenting the upgrade path.
-**Depends on**: Phase 1, Phase 2, Phase 3, Phase 4
-**Requirements**: MIGR-01, MIGR-02, DEMO-01, DEMO-02, DEMO-03, REL-01, REL-02, REL-03, REL-04
+**Goal**: When `TetraTileMapLayer.tile_set == null` and `atlas_contract.layout != null`, the layer routes rendering through `layout.fallback_tile_set`. This is the prototyping UX win — drop a fresh layer into a scene with just a layout attached and start painting.
+
+**Depends on**: Phase 1 (layer integration), Phase 2 (native fallback `.tres` files), Phase 3 (TBT fallback `.tres` files). Wires the consumer side once all 8 layouts have their fallback TileSets bundled.
+
+**Requirements**: PREVIEW-03, PREVIEW-04. Final visual-regression sweep across all 8 layouts.
+
 **Success Criteria** (what must be TRUE):
-  1. Downloading the `tetra_tile-v0.2.0.zip` GitHub Release artifact and extracting to a fresh Godot 4.6 project produces a working demo with no errors on first run (`addons/tetra_tile/` extracts at archive root; demo opens and plays).
-  2. The updated `tetra_tile_demo.tscn` exhibits all three new features (variation visible across painted fill cells; non-rotating directional tiles for at least one region; top-cap tiles on platform tops) and the platformer player can interact with each region (runtime drag-paint still works).
-  3. README contains an "Upgrading from 0.1.x" section describing both migration paths (referencing the bundled `tetra_tile_default_contract.tres` as PRIMARY; v0.1-shape detection as BACKUP) — the text passes a "follow the steps in a fresh v0.1 project" smoke test.
-  4. `plugin.cfg` `version` field reads `0.2.0` exactly (no `-pre` / `-alpha` / `-dev` suffix); CHANGELOG.md has a v0.2.0 entry that names every property rename and the `atlas_contract` introduction.
-  5. The `v0.2.0` git tag points at the release commit; `tetra_tile-v0.2.0.zip` is attached to the GitHub Release page; final LOC audit confirms `addons/tetra_tile/` total stays under TileMapDual's equivalent surface area.
+1. Creating a new `TetraTileMapLayer` node with `tile_set = null` and `atlas_contract` attached (with any of the 8 layouts) makes drag-paint produce visible greybox tiles immediately — no TileSet authored.
+2. Assigning `tile_set` directly overrides the fallback (no warnings, no errors). Removing `tile_set` again (back to null) re-routes to the fallback.
+3. All 8 layouts have a working fallback path: paint a small scene using each layout's fallback, confirm visible output matches the layout's template silhouettes.
+4. The fallback routing path doesn't change behavior when `tile_set` is provided (regression check: existing v0.1-style scenes with `tile_set` set don't suddenly use fallback art).
+
+**Plans**: TBD
+
+### Phase 5: Demo Refresh + Documentation + Release
+
+**Goal**: One updated demo scene showcasing all 8 built-in layouts, README sections documenting the library, CHANGELOG, and a tagged GitHub release.
+
+**Depends on**: Phase 1, Phase 2, Phase 3, Phase 4 (consuming phase — uses every output of the prior phases).
+
+**Requirements**: DEMO-01, DEMO-02, DEMO-03, DOC-01, DOC-02, DOC-03, DOC-04, REL-01, REL-02, REL-03.
+
+**Success Criteria** (what must be TRUE):
+1. The updated `tetra_tile_demo.tscn` showcases all 8 layouts — either via runtime layout switching (UI to swap `atlas_contract.layout`) or side-by-side `TetraTileMapLayer` instances arranged spatially. A casual playtester can see each layout in action.
+2. The demo references the bundled fallback TileSets so it works out of the box without any authored tilesets (proves the prototyping UX).
+3. Runtime drag-paint (existing `demo_runtime_painter.gd`) continues to work across all layouts in the updated demo without script changes beyond layout-switching glue.
+4. README has a "Layouts" section listing all 8 built-in layouts with names, descriptions, atlas grids, tile counts, and which conventions they target. Plus "Upgrading from 0.1.x" and "Authoring a Custom Layout" (experimental).
+5. `plugin.cfg` `version` field reads `0.2.0` exactly (no `-pre` / `-alpha` / `-dev` suffix). `CHANGELOG.md` has a v0.2.0 entry naming all breaking changes (`atlas_contract` introduction, deprecated `atlas_layout` enum, any property renames).
+6. Downloading the v0.2.0 GitHub Release zip and extracting to a fresh Godot 4.6 project produces a working demo with no errors on first run; ATTRIBUTION.md is present at the addon root.
+7. Final LOC audit confirms `addons/tetra_tile/` total surface area stays under TileMapDual's equivalent — the result included in the release notes.
+
 **Plans**: TBD
 
 ## Progress
@@ -92,34 +122,40 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Contract Skeleton | 0/TBD | Not started | - |
-| 2. Y-Axis Variation | 0/TBD | Not started | - |
-| 3. Non-Rotating Mode | 0/TBD | Not started | - |
-| 4. Top Tiles + Custom Data Layers + v0.1 Detection | 0/TBD | Not started | - |
-| 5. Demo Refresh + Release Prep | 0/TBD | Not started | - |
+| 1. Contract Skeleton + Tetra Layouts | 0/TBD | Not started | - |
+| 2. Native Layouts | 0/TBD | Not started | - |
+| 3. TileBitTools-Decoded Layouts | 0/TBD | Not started | - |
+| 4. Fallback Routing | 0/TBD | Not started | - |
+| 5. Demo Refresh + Documentation + Release | 0/TBD | Not started | - |
 
 ## Coverage
 
-All 30 v1 requirements mapped to exactly one phase. No orphans, no duplicates.
+All 39 v1 requirements mapped to exactly one phase. No orphans, no duplicates.
 
 | Phase | Requirements (count) |
 |-------|----------------------|
-| 1. Contract Skeleton | CONTRACT-01..06 (6) |
-| 2. Y-Axis Variation | VAR-01..05 (5) |
-| 3. Non-Rotating Mode | NONROT-01..05 (5) |
-| 4. Top Tiles + Custom Data Layers + v0.1 Detection | TOP-01..04, MIGR-03 (5) |
-| 5. Demo Refresh + Release Prep | MIGR-01, MIGR-02, DEMO-01..03, REL-01..04 (9) |
-| **Total** | **30 / 30** |
+| 1. Contract Skeleton + Tetra Layouts | CONTRACT-01..05, LAYOUT-01..05, TETRA-01..03, PREVIEW-01 (14) |
+| 2. Native Layouts | NATIVE-01..03, PREVIEW-02 (partial), TEMPLATE-04 (partial) (5) |
+| 3. TileBitTools-Decoded Layouts | TBT-01..04, TEMPLATE-02, DOC-05 (6) |
+| 4. Fallback Routing | PREVIEW-03, PREVIEW-04 (2) |
+| 5. Demo Refresh + Documentation + Release | DEMO-01..03, DOC-01..04, REL-01..03 (10) |
+| **Pre-shipped (out-of-band, commit e86036f)** | TEMPLATE-01, TEMPLATE-03 (2) |
+| **Total** | **39 / 39** |
+
+> TEMPLATE-01 and TEMPLATE-03 already shipped in commit e86036f (5 of 8 greybox templates + the generator script). Counted as covered; the remaining 3 templates ship in Phase 3 as part of TEMPLATE-02.
 
 ## Identity Guardrails
 
-The PROJECT.md identity constraint — "TetraTile must remain visibly smaller and simpler than TileMapDual" — is checked at three points across the roadmap:
+The PROJECT.md identity constraint — "TetraTile must remain visibly smaller and simpler than TileMapDual" — is checked at four points across the roadmap:
 
-- **End of Phase 1:** LOC checkpoint after Resources land. Contract surface is the largest schema addition; if Phase 1 already pushes the budget, downstream phases have less room.
-- **End of Phase 4:** LOC checkpoint after the largest functional additions land (top layer, custom data layers, legacy detection branch). This is where scope-creep risk is highest.
+- **End of Phase 1:** LOC checkpoint after the contract surface lands. The base class + AtlasSlot + TetraHorizontal/Vertical + integration in TetraTileMapLayer is the largest schema addition; if Phase 1 already pushes the budget, downstream phases have less room.
+- **End of Phase 3:** LOC checkpoint after all 8 layouts ship. Each layout is roughly 40–80 LOC; the cumulative footprint should still stay well under TileMapDual.
+- **End of Phase 4:** Compare the runtime hot path (`_update_cells` → `layout.compute_mask` → `layout.mask_to_atlas` → `set_cell`) against v0.1's straight-line `match` to confirm no significant perf regression at demo scale.
 - **Phase 5 final audit:** Total `addons/tetra_tile/` LOC compared against TileMapDual's equivalent surface; result included in the release notes.
 
 Per PROJECT.md, the quality bar is "works in my game" — visual regression on the demo is the primary verification mechanism, not a formal test suite. Demo-scale (~100–1k cells) is the only perf target; success criteria deliberately do NOT gate on perf.
 
+Architectural anti-patterns explicitly NOT introduced (per `.planning/research/layouts/MASK_UNIFICATION.md` and the TileBitTools audit): no `EditorInspectorPlugin` polish, no Godot terrain peering-bit integration, no parallel painting API, no persistent coordinate cache, no watcher / signal-fanout systems, no multi-terrain transitions, no quarter-tile compositor.
+
 ---
-*Roadmap created: 2026-04-25*
+*Roadmap re-spun: 2026-04-25 after v0.2 pivot to layout library*
