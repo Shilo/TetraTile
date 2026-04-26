@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="PentaTileLayoutPenta" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/penta_tile/layouts/penta_tile_layout_penta.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+axis = 1
+tile_count = 4
+description = "Penta FOUR mode vertical — 4 explicit archetype slots; OuterCorner synthesized from slot 0. Mirror of penta_layout_four_horizontal.tres for VERTICAL axis. Used as the WR-07 regression baseline corpus (locks the axis-mismatch fix at penta_tile_layout_penta.gd _make_slot)."

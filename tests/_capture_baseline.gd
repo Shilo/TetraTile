@@ -1,7 +1,13 @@
-## Temporary baseline capture script — NOT committed to git.
+## Baseline capture script.
 ## Run headlessly:
 ##   Godot_v4.6.2-stable_win64_console.exe --headless --path . --script addons/penta_tile/tests/_capture_baseline.gd
-## Prints BASELINE_HASH=<integer> to stdout, then quits.
+##
+## Optional layout swap (for capturing non-default-layout baselines, e.g. the WR-07 VERTICAL baseline):
+##   ... --script addons/penta_tile/tests/_capture_baseline.gd -- --layout-path=res://addons/penta_tile/demo/penta_layout_four_vertical.tres
+## When --layout-path=<path> is passed, the script swaps the layer's `layout` Resource to that path
+## before forcing rebuild. Without it, captures whatever layout the demo scene has bound (HORIZONTAL FOUR).
+##
+## Prints BASELINE_HASH=<integer> + BASELINE_CELLS / DATA_SIZE to stdout, then quits.
 ## Uses preload() to avoid class_name symbol-table ordering issues in --script mode.
 extends SceneTree
 
@@ -13,6 +19,13 @@ const _PentaScript = preload("res://addons/penta_tile/layouts/penta_tile_layout_
 const _LayerScript = preload("res://addons/penta_tile/penta_tile_map_layer.gd")
 
 func _initialize() -> void:
+	# Optional layout swap via CLI: --layout-path=<res_path>. Used by the VERTICAL baseline
+	# capture to close the WR-07 test-corpus gap without forking the demo scene.
+	var override_layout_path := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--layout-path="):
+			override_layout_path = arg.substr("--layout-path=".length())
+
 	# Load the demo scene. The scene's PentaTileMapLayer will use the preloaded scripts.
 	var demo_scene_path := "res://addons/penta_tile/demo/penta_tile_demo.tscn"
 	var packed := load(demo_scene_path) as PackedScene
@@ -35,6 +48,27 @@ func _initialize() -> void:
 		root_node.queue_free()
 		quit(1)
 		return
+
+	# Optional layout override: swap onto the layer before rebuilding.
+	if override_layout_path != "":
+		var override_layout := load(override_layout_path) as Resource
+		if override_layout == null:
+			printerr("_capture_baseline: could not load layout at " + override_layout_path)
+			root_node.queue_free()
+			quit(1)
+			return
+		layer_node.layout = override_layout
+		# Wave 2 setter calls _queue_rebuild() but does NOT invalidate _synthesized_tile_set
+		# (the cache nuke lives in _on_layout_changed which fires on Resource.changed, not on
+		# layout-property reassignment). Without explicit invalidation, the rebuild reuses the
+		# scene-load cached HORIZONTAL synthesis. Invoke _on_layout_changed manually to clear.
+		if layer_node.has_method("_on_layout_changed"):
+			layer_node._on_layout_changed()
+		print("LAYOUT_OVERRIDE=%s axis=%d tile_count=%d" % [
+			override_layout_path,
+			int(override_layout.get("axis")),
+			int(override_layout.get("tile_count")),
+		])
 
 	# Force synchronous rebuild (in case call_deferred hasn't fired yet).
 	if layer_node.has_method("rebuild"):
