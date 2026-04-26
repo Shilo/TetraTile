@@ -591,18 +591,20 @@ static func _synthesize_slot_image(
 		SLOT_INNER_CORNER:
 			# Three-quadrant L-shape: full slot 0 minus the TR quadrant.
 			# Strategy: start with full slot 0 image; blank out TR quadrant (top-right).
-			# TR quadrant: x = ts/2..ts, y = 0..ts/2
-			# Then stretch the result to tile_size (already full tile_size; just copy).
+			# TR quadrant: x = ts/2..ts, y = 0..ts/2.
+			# WR-05 FIX: use Image.fill_rect for the TR-quadrant blank instead of a
+			# (half_x × half_y) tight set_pixel loop. fill_rect is one engine call vs
+			# 256+ per synthesis under AUTO mode (32×32 tile = 256 pixels; 64×64 = 1024)
+			# and reads more clearly. Image.get_region already returns a fresh Image in
+			# Godot 4.x (NOT a view of atlas_image), so the in-place blank does not
+			# mutate the source atlas.
 			var full_region := Rect2i(slot0_px.x, slot0_px.y, ts.x, ts.y)
 			var full_img := atlas_image.get_region(full_region)
-			# Blank out TR quadrant (x = ts/2.., y = ..ts/2).
-			var half_x := ts.x / 2
-			var half_y := ts.y / 2
-			for py in range(0, half_y):
-				for px in range(half_x, ts.x):
-					full_img.set_pixel(px, py, Color(0.0, 0.0, 0.0, 0.0))
-			# The resulting L-shape covers BL + TL + BR quadrants.
-			# Stretch to tile_size (already tile_size — no resize needed).
+			full_img.fill_rect(
+				Rect2i(ts.x / 2, 0, ts.x / 2, ts.y / 2),
+				Color(0.0, 0.0, 0.0, 0.0)
+			)
+			# The resulting L-shape covers BL + TL + BR quadrants. Already at tile_size — no resize.
 			return full_img
 
 		SLOT_OPPOSITE_CORNERS:
