@@ -129,11 +129,11 @@ static func synthesize_strip(
 		if out_slot < authored_count:
 			# Authored slot — copy image and polygons directly.
 			slot_image = _extract_tile_image(atlas_image, src_atlas_coords, tile_size)
-			slot_polygons = _extract_tile_polygons(atlas_source, src_atlas_coords, tile_size)
+			slot_polygons = _extract_tile_polygons(atlas_source, src_atlas_coords, tile_size, source_tile_set)
 		else:
 			# Synthesized slot — produce from slot 0 sub-regions.
 			slot_image = _synthesize_slot_image(atlas_image, slot0_coords, out_slot, tile_size)
-			slot_polygons = _synthesize_slot_polygons(atlas_source, slot0_coords, out_slot, tile_size)
+			slot_polygons = _synthesize_slot_polygons(atlas_source, slot0_coords, out_slot, tile_size, source_tile_set)
 
 		slots.append({
 			"atlas_coords": Vector2i(out_slot, 0),  # output position in synthesized strip
@@ -141,10 +141,16 @@ static func synthesize_strip(
 			"polygons": slot_polygons,
 		})
 
+	# Include source layer counts so build_tile_set_from_synthesis can mirror them
+	# on the synthesized TileSet before copying polygons (Rule 1 fix — synthesized TileSet
+	# starts with 0 physics/occlusion/navigation layers; polygon copy crashes without them).
 	return {
 		"slots": slots,
 		"tile_size": tile_size,
 		"warnings": warnings,
+		"physics_layer_count": source_tile_set.get_physics_layers_count(),
+		"occlusion_layer_count": source_tile_set.get_occlusion_layers_count(),
+		"navigation_layer_count": source_tile_set.get_navigation_layers_count(),
 	}
 
 
@@ -264,6 +270,20 @@ static func build_tile_set_from_synthesis(result: Dictionary) -> TileSet:
 
 	var ts := TileSet.new()
 	ts.tile_size = tile_size
+
+	# Mirror physics/occlusion/navigation layers from the source TileSet so
+	# _copy_polygons_to_tile_data can write polygons without out-of-bounds errors.
+	# (Rule 1 fix: synthesized TileSet starts bare with 0 layers of each type.)
+	var physics_count: int = result.get("physics_layer_count", 0)
+	var occlusion_count: int = result.get("occlusion_layer_count", 0)
+	var navigation_count: int = result.get("navigation_layer_count", 0)
+	for _i in range(physics_count):
+		ts.add_physics_layer()
+	for _i in range(occlusion_count):
+		ts.add_occlusion_layer()
+	for _i in range(navigation_count):
+		ts.add_navigation_layer()
+
 	var src := TileSetAtlasSource.new()
 	src.texture = ImageTexture.create_from_image(strip_image)
 	src.texture_region_size = tile_size
@@ -308,18 +328,21 @@ static func _copy_polygons_to_tile_data(tile_data: TileData, polygons: Dictionar
 			tile_data.add_collision_polygon(layer_index)
 			tile_data.set_collision_polygon_points(layer_index, idx, poly_points)
 
-	# Occlusion polygons (per occlusion layer; multiple polygons per layer).
+	# Occlusion polygons (per occlusion layer).
+	# Godot 4.6 TileData supports one OccluderPolygon2D per layer via
+	# set_occluder(layer_index, occluder) — no multi-polygon-per-layer API exists.
+	# We take the first polygon in the polys array (if any) and discard the rest.
 	var occlusion: Dictionary = polygons.get("occlusion", {})
 	for layer_index: int in occlusion.keys():
 		var polys: Array = occlusion[layer_index]
-		for poly_points: PackedVector2Array in polys:
-			if poly_points.size() < 3:
-				continue
-			var occ := OccluderPolygon2D.new()
-			occ.polygon = poly_points
-			var idx := tile_data.get_occluder_polygons_count(layer_index)
-			tile_data.add_occluder(layer_index)
-			tile_data.set_occluder(layer_index, idx, occ)
+		if polys.is_empty():
+			continue
+		var poly_points: PackedVector2Array = polys[0]
+		if poly_points.size() < 3:
+			continue
+		var occ := OccluderPolygon2D.new()
+		occ.polygon = poly_points
+		tile_data.set_occluder(layer_index, occ)
 
 	# Navigation polygons (per navigation layer; one nav poly with optional hole loops).
 	var navigation: Dictionary = polygons.get("navigation", {})
@@ -363,10 +386,13 @@ static func _extract_tile_image(
 
 
 ## Extract polygon data from an authored slot in the source atlas source.
+## source_tile_set is used to get physics/occlusion/navigation layer counts so
+## probing loops stay within bounds (Rule 1 fix — out-of-bounds crashes on layer_idx ≥ count).
 static func _extract_tile_polygons(
 		atlas_source: TileSetAtlasSource,
 		atlas_coords: Vector2i,
-		tile_size: Vector2i) -> Dictionary:
+		tile_size: Vector2i,
+		source_tile_set: TileSet = null) -> Dictionary:
 	if not atlas_source.has_tile(atlas_coords):
 		return {}
 	var tile_data := atlas_source.get_tile_data(atlas_coords, 0)
@@ -375,66 +401,48 @@ static func _extract_tile_polygons(
 
 	var result: Dictionary = {}
 
-	# Collision layers.
-	var tile_set := atlas_source.get_tile_set() if atlas_source.has_method("get_tile_set") else null
-	# We iterate layers using the TileSet's layer count.
-	# Access via atlas_source.get_tile_set() is not available in GDScript 4.6 directly;
-	# instead we probe layer indices until get_collision_polygons_count returns 0.
+	# Use source_tile_set layer counts to cap probing loops — avoids out-of-bounds crashes.
+	# If source_tile_set is null (legacy call path without TileSet ref), fall back to 0
+	# layers (no polygon extraction) since we can't probe safely without the count.
+	var phys_layers: int = source_tile_set.get_physics_layers_count() if source_tile_set != null else 0
+	var occ_layers: int = source_tile_set.get_occlusion_layers_count() if source_tile_set != null else 0
+	var nav_layers: int = source_tile_set.get_navigation_layers_count() if source_tile_set != null else 0
+
+	# Collision layers — iterate exactly phys_layers indices (0..phys_layers-1).
 	var collision_dict: Dictionary = {}
-	var layer_idx := 0
-	while true:
+	for layer_idx in range(phys_layers):
 		var poly_count := tile_data.get_collision_polygons_count(layer_idx)
-		if poly_count == 0 and layer_idx > 0:
-			break
 		if poly_count > 0:
 			var polys: Array = []
 			for p in range(poly_count):
 				polys.append(tile_data.get_collision_polygon_points(layer_idx, p))
 			collision_dict[layer_idx] = polys
-		layer_idx += 1
-		if layer_idx > 31:
-			break  # safety cap (Godot max physics layers)
 	if not collision_dict.is_empty():
 		result["collision"] = collision_dict
 
-	# Occlusion layers.
+	# Occlusion layers — iterate exactly occ_layers indices.
+	# Godot 4.6 TileData: get_occluder(layer_index) → one OccluderPolygon2D or null.
 	var occlusion_dict: Dictionary = {}
-	layer_idx = 0
-	while true:
-		var poly_count := tile_data.get_occluder_polygons_count(layer_idx)
-		if poly_count == 0 and layer_idx > 0:
-			break
-		if poly_count > 0:
-			var polys: Array = []
-			for p in range(poly_count):
-				var occ := tile_data.get_occluder(layer_idx, p)
-				if occ != null:
-					polys.append(occ.polygon)
-			occlusion_dict[layer_idx] = polys
-		layer_idx += 1
-		if layer_idx > 31:
-			break  # safety cap
+	for layer_idx in range(occ_layers):
+		var occ: OccluderPolygon2D = tile_data.get_occluder(layer_idx)
+		if occ != null and occ.polygon.size() >= 3:
+			occlusion_dict[layer_idx] = [occ.polygon]
 	if not occlusion_dict.is_empty():
 		result["occlusion"] = occlusion_dict
 
-	# Navigation layers.
+	# Navigation layers — iterate exactly nav_layers indices.
 	var navigation_dict: Dictionary = {}
-	layer_idx = 0
-	while true:
+	for layer_idx in range(nav_layers):
 		var nav_poly := tile_data.get_navigation_polygon(layer_idx)
-		if nav_poly == null and layer_idx > 0:
-			break
-		if nav_poly != null:
-			var outline_count := nav_poly.get_outline_count()
-			if outline_count > 0:
-				var outer: PackedVector2Array = nav_poly.get_outline(0)
-				var holes: Array = []
-				for h in range(1, outline_count):
-					holes.append(nav_poly.get_outline(h))
-				navigation_dict[layer_idx] = {"outer": outer, "holes": holes}
-		layer_idx += 1
-		if layer_idx > 31:
-			break  # safety cap
+		if nav_poly == null:
+			continue
+		var outline_count := nav_poly.get_outline_count()
+		if outline_count > 0:
+			var outer: PackedVector2Array = nav_poly.get_outline(0)
+			var holes: Array = []
+			for h in range(1, outline_count):
+				holes.append(nav_poly.get_outline(h))
+			navigation_dict[layer_idx] = {"outer": outer, "holes": holes}
 	if not navigation_dict.is_empty():
 		result["navigation"] = navigation_dict
 
@@ -531,14 +539,16 @@ static func _synthesize_slot_image(
 
 ## Synthesize polygon data for a synthesized slot from slot 0 source polygons.
 ## Applies sub-region clipping per Gate 2 anchoring spec.
+## source_tile_set passed through to _extract_tile_polygons for bounds-safe layer probing.
 static func _synthesize_slot_polygons(
 		atlas_source: TileSetAtlasSource,
 		slot0_coords: Vector2i,
 		out_slot: int,
-		tile_size: Vector2i) -> Dictionary:
+		tile_size: Vector2i,
+		source_tile_set: TileSet = null) -> Dictionary:
 	if not atlas_source.has_tile(slot0_coords):
 		return {}
-	var source_polygons := _extract_tile_polygons(atlas_source, slot0_coords, tile_size)
+	var source_polygons := _extract_tile_polygons(atlas_source, slot0_coords, tile_size, source_tile_set)
 	if source_polygons.is_empty():
 		return {}
 

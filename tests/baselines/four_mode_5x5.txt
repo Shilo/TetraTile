@@ -1,0 +1,14 @@
+# FOUR-mode regression baseline (PENTA-SYNTH-12 / PENTA-03)
+# Captured: 2026-04-26
+# Method: hash(Array(PentaTileMapLayer._primary_layer.tile_map_data)) after rebuild()
+#   PackedByteArray has no .hash() in Godot 4.6 — GDScript builtin hash() on Array conversion used.
+# Demo: addons/penta_tile/demo/penta_tile_demo.tscn (painted region in PentaTileMapLayer)
+# Layout: penta_layout_four_horizontal.tres (axis=HORIZONTAL, tile_count=FOUR)
+# Atlas: 4-tile strip from demo's existing TileSet (tiles at 0:0, 1:0, 2:0, 3:0 with collision)
+# Cells: 46 display cells rendered; tile_map_data size = 554 bytes
+#
+# Wave 7 determinism test: run synthesis twice on the same inputs; hash both; assert equal
+# AND match this baseline. If a future commit changes the hash intentionally, update this
+# file with a justification commit explaining the visual change.
+
+BASELINE_HASH=2986698704

@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://cqqaiq1qjwgwg" path="res://addons/penta_tile/demo/demo_player.gd" id="3_ojcmv"]
 [ext_resource type="Texture2D" uid="uid://cl6fr0jh4x0ri" path="res://icon.svg" id="4_g6s2o"]
 [ext_resource type="Script" uid="uid://dyv8ickdvbeqv" path="res://addons/penta_tile/demo/demo_runtime_painter.gd" id="5_81n6k"]
+[ext_resource type="Resource" path="res://addons/penta_tile/demo/penta_layout_four_horizontal.tres" id="6_layout"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_t6276"]
 texture = ExtResource("1_t3lsh")
@@ -35,7 +36,7 @@ tile_set = SubResource("TileSet_62ywd")
 collision_enabled = false
 navigation_enabled = false
 script = ExtResource("2_yi4p3")
-layout = null
+layout = ExtResource("6_layout")
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1507627229]
 position = Vector2(216, 121)

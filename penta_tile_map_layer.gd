@@ -5,6 +5,12 @@ extends TileMapLayer
 
 const _PRIMARY_LAYER_NAME := "_PentaTileVisual"
 
+# Preload synthesis utility to avoid class_name symbol-table ordering failures
+# in headless / --script mode where the global class registry is not pre-built.
+# Using preload() guarantees the script is resolved at parse time regardless of
+# registry state (Rule 1 fix — bare class_name references break outside editor).
+const _PentaTileSynthesis = preload("res://addons/penta_tile/penta_tile_synthesis.gd")
+
 @export var atlas_source_id: int = -1:
 	set(value):
 		atlas_source_id = value
@@ -325,11 +331,11 @@ func _ensure_synthesized_tile_set(penta: PentaTileLayout, source_id: int) -> voi
 		# per-strip dispatch is a future expansion; for now AUTO_STRIP renders empty until per-strip
 		# dispatch lands. NO stub fallback to user tile_set — caller renders nothing.)
 		return
-	var result: Dictionary = PentaTileSynthesis.synthesize_strip(tile_set, source_id, penta_axis, 0, mode)
+	var result: Dictionary = _PentaTileSynthesis.synthesize_strip(tile_set, source_id, penta_axis, 0, mode)
 	if result.is_empty() or not result.has("slots"):
 		push_warning("PentaTileMapLayer: synthesize_strip returned no slots for mode=%d axis=%d" % [mode, penta_axis])
 		return
-	var synthesized: TileSet = PentaTileSynthesis.build_tile_set_from_synthesis(result)
+	var synthesized: TileSet = _PentaTileSynthesis.build_tile_set_from_synthesis(result)
 	if synthesized == null:
 		push_warning("PentaTileMapLayer: build_tile_set_from_synthesis returned null for mode=%d" % mode)
 		return
