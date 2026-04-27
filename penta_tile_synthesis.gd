@@ -154,8 +154,18 @@ static func synthesize_strip(
 		var slot_image: Image
 		var slot_polygons: Dictionary
 
-		if out_slot < authored_count:
-			# Authored slot — copy image and polygons directly.
+		# Slot 0 is ALWAYS synthesized from source slot 0's BL quadrant. The user
+		# authors slot 0 as a FULL IsolatedCell silhouette (4 corners + 4 edges + fill)
+		# for preview / ONE-mode authoring, but the dispatcher needs an OuterCorner
+		# PIECE (single quadrant) for the rotation-tiling trick. The synthesizer bridges
+		# these by extracting source slot 0's BL quadrant into a 16x16 canvas (with
+		# the rest transparent) — this BL-quadrant piece, rotated 4 ways, tiles into
+		# the original full silhouette across the 4 display cells around a painted cell.
+		if out_slot == 0:
+			slot_image = _synthesize_outer_corner_piece(atlas_image, slot0_coords, tile_size)
+			slot_polygons = {}                                                        # polygon synthesis for slot 0 deferred (would need quadrant clip)
+		elif out_slot < authored_count:
+			# Authored slot 1..authored_count-1 — copy image and polygons directly.
 			slot_image = _extract_tile_image(atlas_image, src_atlas_coords, tile_size)
 			slot_polygons = _extract_tile_polygons(atlas_source, src_atlas_coords, tile_size, source_tile_set)
 		else:
@@ -544,6 +554,53 @@ static func _extract_tile_polygons(
 	return result
 
 
+## Synthesize the OuterCorner piece (output slot 0) from source slot 0's BL quadrant.
+## Source slot 0 is authored as a FULL IsolatedCell silhouette; the dispatcher needs
+## a single-quadrant piece for the rotation-tiling trick (mask 1/2/4/8 each render
+## slot 0 with a different rotation; the 4 rotated copies tile into the silhouette
+## across the 4 display cells around a single painted logic cell).
+##
+## Output: tile_size canvas with transparent TL/TR/BR. Source's TR-quadrant content
+## placed at the canvas's BL position (so source's T+R perimeter wires land at the
+## synth piece's BL-quadrant T+R edges = at the silhouette's outer perimeter under
+## the dispatcher's rotation+tiling).
+##
+## CONVENTION: source slot 0 is authored with the silhouette's outer wires/edges on
+## the source tile's perimeter (T/B/L/R sides of the source tile). The TR quadrant
+## of source contains:
+##   - source's TR outer corner motif at source (TR of TR quadrant) = source's TR
+##   - source's T edge segment at source's top within TR quadrant
+##   - source's R edge segment at source's right within TR quadrant
+##   - source's center fill content within TR quadrant
+##
+## When this TR quadrant is blitted to the synth canvas's BL position, the source's
+## perimeter wires end up at synth (0..half-1, half..tile-1) — i.e., the BL quadrant
+## of synth. Specifically:
+##   - source's T edge (was at source y=0..3) → synth y=half..half+3 = top edge of synth BL quadrant
+##   - source's R edge (was at source x=tile-4..tile-1) → synth x=half-4..half-1 = right edge of synth BL quadrant
+##
+## After dispatcher rotation+tiling, the synth's BL-quadrant T+R edges land at the
+## silhouette's outer T+R edges (PERIMETER, not interior). That's the correct
+## visual: wires on silhouette edges, not at silhouette center.
+static func _synthesize_outer_corner_piece(
+		atlas_image: Image,
+		slot0_coords: Vector2i,
+		tile_size: Vector2i) -> Image:
+	var canvas := Image.create(tile_size.x, tile_size.y, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color(0.0, 0.0, 0.0, 0.0))
+	if atlas_image == null:
+		return canvas
+	var slot0_px := Vector2i(slot0_coords.x * tile_size.x, slot0_coords.y * tile_size.y)
+	var half_x := tile_size.x / 2
+	var half_y := tile_size.y / 2
+	# Extract source's TR quadrant: x ∈ [half, tile_size), y ∈ [0, half)
+	var tr_region := Rect2i(slot0_px.x + half_x, slot0_px.y, half_x, half_y)
+	var tr_img := atlas_image.get_region(tr_region)
+	# Blit to synth's BL quadrant: x ∈ [0, half), y ∈ [half, tile_size)
+	canvas.blit_rect(tr_img, Rect2i(Vector2i.ZERO, Vector2i(half_x, half_y)), Vector2i(0, half_y))
+	return canvas
+
+
 ## Synthesize slot `out_slot` image from slot 0 (IsolatedCell) sub-regions.
 ## Gate 1 anchoring spec:
 ##   SLOT_FILL (1)           — center 50% of slot 0, stretched to tile_size
@@ -608,35 +665,25 @@ static func _synthesize_slot_image(
 			return full_img
 
 		SLOT_OPPOSITE_CORNERS:
-			# OppositeCorners (mask 9 = "\\" diagonal: TL + BR painted) needs a tile
-			# with TL-outer-corner art + BR-outer-corner art composited.
-			#
-			# Slot 0 canonical = BL-outer-corner art (BL quadrant filled, others
-			# transparent). To get the TL/BR corner orientations:
-			#   - Rotate slot 0 90° CW  → BL becomes TL (TL-outer-corner art)
-			#   - Rotate slot 0 90° CCW → BL becomes BR (BR-outer-corner art)
-			#
-			# Take the relevant quadrant from each rotated copy and composite onto
-			# a transparent canvas at the right position.
+			# Composite TL_quad + BR_quad of source slot 0 (the FULL silhouette) onto
+			# a transparent canvas. Source slot 0's TL quadrant contains the silhouette's
+			# TL outer corner; BR quadrant contains the BR outer corner. This produces
+			# a tile with TL-corner art + BR-corner art = OppositeCorners "\\" diagonal
+			# (mask 9 anchor; mask 6 uses _ROTATE_FLIP_H to swap to "/").
 			var canvas := Image.create(ts.x, ts.y, false, Image.FORMAT_RGBA8)
 			canvas.fill(Color(0.0, 0.0, 0.0, 0.0))
 			var half_x := ts.x / 2
 			var half_y := ts.y / 2
 
-			# Extract slot 0 as a separate Image so rotation does not mutate atlas_image.
-			var slot0_full := atlas_image.get_region(Rect2i(slot0_px.x, slot0_px.y, ts.x, ts.y))
+			# TL quad: slot0_px + (0, 0), size = half_x × half_y
+			var tl_region := Rect2i(slot0_px.x, slot0_px.y, half_x, half_y)
+			var tl_img := atlas_image.get_region(tl_region)
+			canvas.blit_rect(tl_img, Rect2i(Vector2i.ZERO, Vector2i(half_x, half_y)), Vector2i(0, 0))
 
-			# Rotate 90° CW → BL quadrant content moves to TL → TL-corner art.
-			var tl_corner_image := slot0_full.duplicate() as Image
-			tl_corner_image.rotate_90(CLOCKWISE)
-			var tl_quad := tl_corner_image.get_region(Rect2i(0, 0, half_x, half_y))
-			canvas.blit_rect(tl_quad, Rect2i(Vector2i.ZERO, Vector2i(half_x, half_y)), Vector2i(0, 0))
-
-			# Rotate 90° CCW → BL quadrant content moves to BR → BR-corner art.
-			var br_corner_image := slot0_full.duplicate() as Image
-			br_corner_image.rotate_90(COUNTERCLOCKWISE)
-			var br_quad := br_corner_image.get_region(Rect2i(half_x, half_y, half_x, half_y))
-			canvas.blit_rect(br_quad, Rect2i(Vector2i.ZERO, Vector2i(half_x, half_y)), Vector2i(half_x, half_y))
+			# BR quad: slot0_px + (half_x, half_y), size = half_x × half_y
+			var br_region := Rect2i(slot0_px.x + half_x, slot0_px.y + half_y, half_x, half_y)
+			var br_img := atlas_image.get_region(br_region)
+			canvas.blit_rect(br_img, Rect2i(Vector2i.ZERO, Vector2i(half_x, half_y)), Vector2i(half_x, half_y))
 
 			return canvas
 

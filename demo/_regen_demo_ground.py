@@ -58,35 +58,31 @@ def _orange_border(draw: ImageDraw.ImageDraw, x0: int, y0: int, x1: int, y1: int
 
 
 def draw_isolated_cell(img: Image.Image, col: int) -> None:
-    """Slot 0 — OuterCorner piece (BL quadrant of the silhouette).
+    """Slot 0 — FULL IsolatedCell silhouette (4 outer corners + 4 edges + center fill).
 
-    Per Phase 2 design: slot 0 stores ONE quadrant of the silhouette; the dispatcher
-    rotates it 4 ways to produce the 4 outer-corner orientations. When the 4 display
-    cells around a single painted logic cell render rotations of this piece, the
-    quadrants tile into a coherent isolated-cell silhouette.
+    Per the user's design intent: source slot 0 is the full preview / authored
+    IsolatedCell silhouette. The SYNTHESIZER extracts a BL-quadrant sub-region for
+    the OuterCorner piece used by the dispatcher (so rotation produces 4 orientations).
 
-    Canonical _ROTATE_0 = BL-quadrant content. The other 3 quadrants of the tile
-    must be transparent so rotated copies don't overdraw each other."""
+    Source slot 0 needs the silhouette's outer corners at the actual silhouette
+    outer corners (TL, TR, BL, BR of the tile) and orange wires along the
+    silhouette edges (T, R, B, L of the tile). The synthesizer pulls the BL
+    quadrant which contains the BL outer corner motif at slot tile-local (0, 16-ish)
+    — that's the silhouette's BL outer corner.
+
+    For the rotation trick: the synthesizer extracts the BL quadrant in such a way
+    that the corner motif lands at the synthesized tile's CENTER (since the dual-grid
+    silhouette outer corners map to the center of display cells). The
+    orange-wire L+B edges of the BL quadrant become the synthesized tile's wire
+    placement — they tile into a cross when rotated and composed only if my
+    quadrant-with-wires-on-L+B is wrong. Correct authoring: put wires on the
+    silhouette's outer edges (perimeter), NOT on the quadrant boundaries."""
     draw = ImageDraw.Draw(img)
     x0, y0 = col * TILE, 0
-    half = TILE // 2  # 8 for TILE=16
-    # BL quadrant: x ∈ [0, half), y ∈ [half, TILE)
-    bl_x0 = x0
-    bl_y0 = y0 + half
-    bl_x1 = x0 + half
-    bl_y1 = y0 + TILE
-    _stippled_fill(draw, bl_x0, bl_y0, bl_x1, bl_y1)
-    # Orange wires only on the silhouette OUTER edges of this quadrant (T-edge of the
-    # BL quadrant is interior to the silhouette = no wire; L+B edges are silhouette
-    # boundaries = orange wire). The R-edge (interior boundary between BL and BR
-    # quadrants) is internal to the silhouette = no wire. Wait — for an ISOLATED
-    # cell, ALL 4 silhouette edges show wires. The BL quadrant's silhouette-facing
-    # edges are L and B. The other two edges (T and R) face the silhouette interior
-    # in a multi-cell painted area but are exposed in a single isolated cell.
-    # Convention: draw wires on L+B (always-silhouette boundaries for this quadrant).
-    # T+R get no wires so multi-tile painted areas (Fill, Border, etc) don't show
-    # weird internal lines where quadrants meet.
-    _orange_border(draw, bl_x0, bl_y0, bl_x1, bl_y1, "LB")
+    x1, y1 = x0 + TILE, y0 + TILE
+    _stippled_fill(draw, x0, y0, x1, y1)
+    # Orange wires on all 4 silhouette outer edges (perimeter of the tile).
+    _orange_border(draw, x0, y0, x1, y1, "TBLR")
 
 
 def draw_fill(img: Image.Image, col: int) -> None:

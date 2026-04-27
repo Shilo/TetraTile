@@ -24,8 +24,8 @@ Godot transform flags (from TileSetAtlasSource):
 
 from PIL import Image, ImageDraw
 
-TILE = 16
-SLOT_PATH = "addons/penta_tile/demo/penta_tile_ground.png"
+SLOT_PATH = "addons/penta_tile/layouts/penta_tile_layout_penta/four_horizontal.png"
+TILE = 32  # bundled preset is 32px tiles
 OUT_PATH = "addons/penta_tile/tests/composed_silhouette.png"
 
 
@@ -41,9 +41,23 @@ def godot_transform(img: Image.Image, flags: int) -> Image.Image:
     return out
 
 
+def synthesize_outer_corner_piece(slot0: Image.Image) -> Image.Image:
+    """Mirror of penta_tile_synthesis.gd::_synthesize_outer_corner_piece.
+    Extract source TR quadrant, place at a transparent canvas's BL position.
+    Source T+R perimeter wires land at synth's BL-quadrant inner edges → silhouette
+    outer T+R perimeter under rotation+tiling."""
+    half = TILE // 2
+    canvas = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 0))
+    tr = slot0.crop((half, 0, TILE, half))
+    canvas.paste(tr, (0, half), tr)
+    return canvas
+
+
 def main() -> None:
     src = Image.open(SLOT_PATH).convert("RGBA")
-    slot0 = src.crop((0, 0, TILE, TILE))
+    full_silhouette = src.crop((0, 0, TILE, TILE))
+    # Apply synth: extract OuterCorner piece from full silhouette
+    slot0 = synthesize_outer_corner_piece(full_silhouette)
 
     # Per the dispatcher mappings (verified by paint_test.gd):
     #   mask=4 (display at TR of painted cell)  → _ROTATE_0
