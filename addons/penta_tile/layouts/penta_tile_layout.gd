@@ -16,6 +16,28 @@ extends Resource
 @export_multiline var description: String = ""               # D-22: multiline
 
 
+# Auto-fill seam for `bitmask_template`. Subclasses with a single bundled preview
+# PNG (DualGrid16, Wang2Edge, Wang2Corner, Min3x3) override this to return the
+# `res://...` path; the base `_init` loads it into `bitmask_template` if the
+# property is still null (so users see the inspector preview the moment they
+# instantiate the resource, AND the value serializes into .tres on save).
+# Returns "" when the layout has no single canonical PNG (e.g. Penta which
+# has 10 PNGs across axis × mode and uses its own _refresh_preset_bitmask).
+func _default_bitmask_template_path() -> String:
+	return ""
+
+
+func _init() -> void:
+	if bitmask_template != null:
+		return                                                                        # user-supplied or already serialized — don't overwrite
+	var path := _default_bitmask_template_path()
+	if path.is_empty():
+		return
+	var tex := load(path) as Texture2D
+	if tex != null:
+		bitmask_template = tex
+
+
 func compute_mask(_coord: Vector2i, _sample_fn: Callable) -> int:
 	push_error("PentaTileLayout.compute_mask is abstract; subclass must override.")
 	return 0

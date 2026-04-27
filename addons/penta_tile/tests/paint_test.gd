@@ -105,6 +105,17 @@ func _initialize() -> void:
 
 	await _test_abstract_base_guard()
 
+	# Native-layout bitmask_template auto-fill — every concrete layout subclass
+	# must seed `bitmask_template` from its bundled PNG on _init so the inspector
+	# preview is non-null without manual user assignment, AND the value serializes
+	# into .tres files when the resource is saved.
+	_test_native_layout_bitmask_autofill()
+
+	# Mode-less-than-axis-size dispatch — tile_count=THREE on a 5-tile atlas must
+	# copy slots 0..2 from source and synthesize slots 3..4 from slot 0. Confirms
+	# the explicit-mode-overrides-detection path works as the locked spec.
+	await _test_explicit_mode_smaller_than_atlas()
+
 	_finish()
 
 
@@ -546,6 +557,120 @@ func _test_pattern(name: String, logic_cells: Array) -> void:
 
 	if any_fail:
 		_fail(name, "one or more display cells did not match expected mask→slot mapping")
+
+
+func _test_native_layout_bitmask_autofill() -> void:
+	print("--- native-layout bitmask_template auto-fill ---")
+	# Each concrete subclass must populate bitmask_template via its
+	# _default_bitmask_template_path override on _init. Verifies (1) the texture
+	# is non-null, (2) it loads to a Texture2D (not some other type), (3) the
+	# load actually resolves to the bundled PNG path the subclass advertises.
+	var cases := [
+		["DualGrid16",   _DualGrid16Script,  "res://addons/penta_tile/layouts/penta_tile_layout_dual_grid_16.png"],
+		["Wang2Edge",    _Wang2EdgeScript,   "res://addons/penta_tile/layouts/penta_tile_layout_wang_2_edge.png"],
+		["Wang2Corner",  _Wang2CornerScript, "res://addons/penta_tile/layouts/penta_tile_layout_wang_2_corner.png"],
+		["Minimal3x3",   _Min3x3Script,      "res://addons/penta_tile/layouts/penta_tile_layout_minimal_3x3.png"],
+	]
+	for c in cases:
+		var name: String = c[0]
+		var script: GDScript = c[1]
+		var expected_path: String = c[2]
+		var instance: Resource = script.new()
+		var advertised: String = instance._default_bitmask_template_path() if instance.has_method("_default_bitmask_template_path") else ""
+		if advertised != expected_path:
+			_fail("bitmask_autofill", "%s _default_bitmask_template_path returned '%s' (expected '%s')" % [name, advertised, expected_path])
+			continue
+		if instance.bitmask_template == null:
+			_fail("bitmask_autofill", "%s bitmask_template is null after _init (expected auto-loaded from %s)" % [name, expected_path])
+			continue
+		if not (instance.bitmask_template is Texture2D):
+			_fail("bitmask_autofill", "%s bitmask_template is not Texture2D" % name)
+			continue
+		print("  %s: bitmask_template auto-loaded from %s OK" % [name, expected_path])
+
+
+func _test_explicit_mode_smaller_than_atlas() -> void:
+	# tile_count=THREE on a 5-tile atlas: slots 0/1/2 copied from source, slots
+	# 3/4 synthesized from slot 0. Verifies (a) the synthesized atlas registers
+	# tiles at all 5 slot positions, (b) the dispatcher routes correctly, (c)
+	# slots 3/4 have non-zero opacity (synthesized art is visible).
+	print("--- explicit tile_count=THREE on 5-tile atlas ---")
+	# Use the bundled FIVE-mode horizontal Penta PNG as a 5-tile source.
+	var tex := load("res://addons/penta_tile/layouts/penta_tile_layout_penta/five_horizontal.png") as Texture2D
+	if tex == null:
+		_fail("explicit_mode_smaller", "could not load FIVE-mode bundled PNG as test source")
+		return
+	var ts := TileSet.new()
+	var atlas_source := TileSetAtlasSource.new()
+	atlas_source.texture = tex
+	var tile_size := Vector2i(tex.get_width() / 5, tex.get_height())
+	atlas_source.texture_region_size = tile_size
+	for i in range(5):
+		atlas_source.create_tile(Vector2i(i, 0))
+	ts.add_source(atlas_source, 0)
+	ts.tile_size = tile_size
+
+	# Layer with tile_count=THREE explicit on a 5-tile atlas.
+	var layout: Resource = _PentaScript.new()
+	layout.set("axis", 0)                                                                # HORIZONTAL
+	layout.set("tile_count", 3)                                                          # THREE
+	var layer: Node = _LayerScript.new()
+	layer.tile_set = ts
+	layer.layout = layout
+	get_root().add_child(layer)
+	await process_frame
+	await process_frame
+
+	# Verify synthesized atlas registers all 5 output slots (0..4, 0).
+	var synth: TileSet = layer.get("_synthesized_tile_set")
+	if synth == null:
+		_fail("explicit_mode_smaller", "synthesized TileSet is null")
+		layer.queue_free()
+		return
+	var synth_src := synth.get_source(0) as TileSetAtlasSource
+	if synth_src == null:
+		_fail("explicit_mode_smaller", "synthesized TileSet has no source 0")
+		layer.queue_free()
+		return
+	for slot in range(5):
+		if not synth_src.has_tile(Vector2i(slot, 0)):
+			_fail("explicit_mode_smaller", "synthesized slot %d not registered (expected all 5 slots present)" % slot)
+
+	# Verify slots 3/4 (synthesized from slot 0) have visible art.
+	var img: Image = synth_src.texture.get_image() if synth_src.texture != null else null
+	if img != null:
+		var region := synth_src.texture_region_size
+		for slot: int in [3, 4]:
+			var x0: int = slot * region.x
+			var opaque := 0
+			for y in range(region.y):
+				for x in range(region.x):
+					if img.get_pixel(x0 + x, y).a > 0.01:
+						opaque += 1
+			if opaque == 0:
+				_fail("explicit_mode_smaller", "synthesized slot %d (THREE-mode synth from slot 0) has zero opaque pixels" % slot)
+			else:
+				print("  slot %d (synthesized): %d opaque pixels" % [slot, opaque])
+
+	# Verify dispatch math: paint a few cells, check synth atlas coords resolve.
+	layer.set_cell(Vector2i(0, 0), 0, Vector2i(0, 0))
+	layer.set_cell(Vector2i(1, 0), 0, Vector2i(0, 0))
+	await process_frame
+	await process_frame
+	var primary = layer.get("_primary_layer")
+	var used: Array = primary.get_used_cells() if primary != null else []
+	var dispatched_to_synthesized_slot := false
+	for cell: Vector2i in used:
+		var ac: Vector2i = primary.get_cell_atlas_coords(cell)
+		if ac.x >= 0 and ac.x <= 4 and synth_src.has_tile(ac):
+			dispatched_to_synthesized_slot = true
+			break
+	if not dispatched_to_synthesized_slot:
+		_fail("explicit_mode_smaller", "no painted display cell dispatched to a registered synth slot")
+	else:
+		print("  dispatch on 2-cell paint resolved to registered synth coords OK")
+
+	layer.queue_free()
 
 
 func _fail(scope: String, msg: String) -> void:
