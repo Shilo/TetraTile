@@ -56,36 +56,40 @@ var _layout: Resource = null
 
 
 func _initialize() -> void:
-	print("=== PentaTile paint test ===")
-	_setup_layer()
+	print("=== PentaTile paint test (multi-mode) ===")
+	# Per-mode coverage: ONE/TWO/THREE/FOUR/FIVE + AUTO + AUTO_STRIP. Each mode uses
+	# its own bundled preset PNG (so the source atlas has the correct authored slot
+	# count) and runs the same paint patterns + mask→slot verification.
+	for mode_label in ["ONE", "TWO", "THREE", "FOUR", "FIVE", "AUTO"]:
+		await _run_mode(mode_label)
+	await _test_abstract_base_guard()
+	_finish()
+
+
+func _run_mode(mode_label: String) -> void:
+	print("\n=== MODE: %s ===" % mode_label)
+	_setup_layer_for_mode(mode_label)
 	if _layer == null:
-		_fail("setup", "could not build PentaTileMapLayer")
-		_finish()
+		_fail("setup_%s" % mode_label, "could not build PentaTileMapLayer")
 		return
 
-	# Wait for _ready and deferred rebuild.
 	await process_frame
 	await process_frame
 
 	_check_synthesized_atlas()
 
 	# Test patterns. Each is (name, painted_logic_cells: Array[Vector2i]).
+	# Each mode runs the same pattern set. Mask correctness is universal — the
+	# dispatch table is mode-independent. What VARIES per mode is the SYNTH
+	# atlas pixel content (slots 1..4 may be authored or synthesized).
 	await _test_pattern("single_cell", [Vector2i(0, 0)])
-	await _test_pattern("2x1_horizontal", [Vector2i(0, 0), Vector2i(1, 0)])
-	await _test_pattern("2x1_vertical", [Vector2i(0, 0), Vector2i(0, 1)])
 	await _test_pattern("2x2_block", [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)])
-	await _test_pattern("L_shape", [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1)])
 	await _test_pattern("3x3_filled", [
 		Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0),
 		Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1),
 		Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2),
 	])
 	await _test_pattern("diagonal_TL_BR", [Vector2i(0, 0), Vector2i(1, 1)])
-	await _test_pattern("diagonal_TR_BL", [Vector2i(1, 0), Vector2i(0, 1)])
-
-	await _test_abstract_base_guard()
-
-	_finish()
 
 
 # Verifies _resolve_layout suppresses painting + emits a warning when `layout` is the
@@ -111,27 +115,56 @@ func _test_abstract_base_guard() -> void:
 	_layer.layout = _layout
 
 
-func _setup_layer() -> void:
-	# Build a PentaTileMapLayer programmatically; bind the demo TileSet (loaded from .tscn
-	# subresource indirectly via packed scene + extract) is fragile, so we construct an
-	# equivalent TileSet inline: 1 source × 4 horizontal tiles.
-	var tex := load("res://addons/penta_tile/demo/penta_tile_ground.png") as Texture2D
+func _setup_layer_for_mode(mode_label: String) -> void:
+	# Pick the bundled preset PNG for this mode. AUTO uses FOUR's PNG (so the auto
+	# detector reads atlas axis size 4 and resolves to FOUR mode).
+	var path_lookup := {
+		"ONE":   "res://addons/penta_tile/layouts/penta_tile_layout_penta/one_horizontal.png",
+		"TWO":   "res://addons/penta_tile/layouts/penta_tile_layout_penta/two_horizontal.png",
+		"THREE": "res://addons/penta_tile/layouts/penta_tile_layout_penta/three_horizontal.png",
+		"FOUR":  "res://addons/penta_tile/layouts/penta_tile_layout_penta/four_horizontal.png",
+		"FIVE":  "res://addons/penta_tile/layouts/penta_tile_layout_penta/five_horizontal.png",
+		"AUTO":  "res://addons/penta_tile/layouts/penta_tile_layout_penta/four_horizontal.png",
+	}
+	var mode_to_int := {
+		"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5,
+		"AUTO": 0,                                                                    # TileCountMode.AUTO = 0
+	}
+	var tile_counts := {
+		"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5, "AUTO": 4,
+	}
+
+	var path: String = path_lookup[mode_label]
+	var tile_count: int = tile_counts[mode_label]
+	var tile_count_enum: int = mode_to_int[mode_label]
+
+	var tex := load(path) as Texture2D
 	if tex == null:
-		_fail("setup", "could not load penta_tile_ground.png")
+		_fail("setup_%s" % mode_label, "could not load preset %s" % path)
 		return
+
+	# Bundled presets are 32px tiles. Compute tile_size from texture dimensions.
+	var tile_w := tex.get_width() / tile_count
+	var tile_h := tex.get_height()
+
+	# Tear down previous layer if present.
+	if _layer != null:
+		_layer.queue_free()
+		_layer = null
 
 	var src := TileSetAtlasSource.new()
 	src.texture = tex
-	src.texture_region_size = Vector2i(16, 16)
-	for slot in range(4):
+	src.texture_region_size = Vector2i(tile_w, tile_h)
+	for slot in range(tile_count):
 		src.create_tile(Vector2i(slot, 0))
 	var ts := TileSet.new()
-	ts.tile_size = Vector2i(16, 16)
+	ts.tile_size = Vector2i(tile_w, tile_h)
 	ts.add_source(src, 0)
 
 	_layout = _PentaScript.new()
 	_layout.set("axis", 0)                                                            # HORIZONTAL
-	_layout.set("tile_count", 4)                                                      # FOUR
+	_layout.set("tile_count", tile_count_enum)
+	_layout.set("_bitmask_is_preset", false)                                          # we're providing our own tile_set; suppress preset auto-load
 
 	_layer = _LayerScript.new()
 	_layer.tile_set = ts

@@ -93,28 +93,27 @@ def draw_edge_mask(draw: ImageDraw.ImageDraw, col: int, row: int, mask: int) -> 
 # ---- Penta archetype drawers (NEW in Phase 2; pixel coords spelled out above) ----
 
 def draw_penta_isolated_cell(draw, col, row):
-    """Slot 0 -- ONE QUADRANT of the IsolatedCell silhouette (the OuterCorner piece).
+    """Slot 0 -- FULL IsolatedCell silhouette (preview + ONE-mode source).
 
-    Canonical _ROTATE_0 orientation = BL quadrant of the silhouette. The dispatcher
-    uses slot 0 with rotation flags to produce all 4 outer-corner orientations:
-       mask=4 (BL only)  → _ROTATE_0  → BL quadrant (this piece, unrotated)
-       mask=1 (TL only)  → _ROTATE_90 → TL quadrant (rotated 90° CCW)
-       mask=2 (TR only)  → _ROTATE_180 → TR quadrant (rotated 180°)
-       mask=8 (BR only)  → _ROTATE_270 → BR quadrant (rotated 90° CW)
-
-    When 4 display cells around a single painted logic cell render this piece with
-    these 4 rotations, the 4 quadrants tile together into a coherent isolated-cell
-    silhouette. CRITICAL: slot 0 art must NOT depict a full silhouette; that breaks
-    the rotation trick and produces 4 overlapping full silhouettes instead.
-
-    BL-quadrant pixel range: x ∈ [0, half), y ∈ [half, TILE). Other 3 quadrants
-    stay transparent so the rotated copies don't overdraw each other."""
+    Slot 0 is authored as the COMPLETE isolated-cell silhouette with all 4 outer
+    corners + 4 edges + center fill. The synthesizer extracts a single-quadrant
+    OuterCorner piece (BL quadrant) from this art at synthesis time, which the
+    dispatcher rotates 4 ways for the 4 outer-corner mask cases. The synthesizer
+    also extracts Fill (center 50%), Border (bottom-half), InnerCorner (3-quadrant
+    L), and OppositeCorners (TL+BR) from this slot 0 in ONE mode."""
     ox, oy = col * TILE, row * TILE
-    half = TILE // 2  # 16 for TILE=32
-    # BL quadrant solid fill
-    draw.rectangle((ox + 0, oy + half, ox + half - 1, oy + TILE - 1), fill=GREY)
-    # BL outer-corner cap (darker accent at the actual silhouette outer corner)
-    draw.rectangle((ox + 0, oy + TILE - 4, ox + 4, oy + TILE - 1), fill=OUTLINE)
+    # Center 16x16 fill
+    draw.rectangle((ox + 8, oy + 8, ox + 24, oy + 24), fill=GREY)
+    # 4 edge slabs (between corner caps)
+    draw.rectangle((ox + 10, oy + 0,  ox + 22, oy + 4),  fill=GREY)   # top
+    draw.rectangle((ox + 10, oy + 28, ox + 22, oy + 32), fill=GREY)   # bottom
+    draw.rectangle((ox + 0,  oy + 10, ox + 4,  oy + 22), fill=GREY)   # left
+    draw.rectangle((ox + 28, oy + 10, ox + 32, oy + 22), fill=GREY)   # right
+    # 4 corner caps
+    draw.rectangle((ox + 0,  oy + 0,  ox + 4,  oy + 4),  fill=GREY)   # TL
+    draw.rectangle((ox + 28, oy + 0,  ox + 32, oy + 4),  fill=GREY)   # TR
+    draw.rectangle((ox + 0,  oy + 28, ox + 4,  oy + 32), fill=GREY)   # BL
+    draw.rectangle((ox + 28, oy + 28, ox + 32, oy + 32), fill=GREY)   # BR
 
 
 def draw_penta_fill(draw, col, row):
