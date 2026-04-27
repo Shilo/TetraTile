@@ -83,9 +83,277 @@ func _initialize() -> void:
 	await _test_pattern("diagonal_TL_BR", [Vector2i(0, 0), Vector2i(1, 1)])
 	await _test_pattern("diagonal_TR_BL", [Vector2i(1, 0), Vector2i(0, 1)])
 
+	# AUTO_STRIP per-strip dispatch tests (Interpretation A — strips perpendicular to slot axis).
+	#   (a) uniform-mode strips     — confirms 5×N output atlas builds correctly
+	#   (b) mixed-mode strips       — strip 0 THREE, strip 1 FIVE; per-cell strip routing works
+	#   (c) gap strip               — strip with internal hole; verifies warning C fires
+	#   (d) VERTICAL axis strips    — strips are columns instead of rows
+	await _test_auto_strip_uniform()
+	await _test_auto_strip_mixed_modes()
+	await _test_auto_strip_with_gap()
+	await _test_auto_strip_vertical()
+
 	await _test_abstract_base_guard()
 
 	_finish()
+
+
+# Build a synthetic multi-strip source TileSet. `strip_modes` = mode counts per strip
+# (e.g. [3, 5] = strip 0 has 3 authored tiles, strip 1 has 5). `axis` = 0 HORIZONTAL
+# (strips are rows running along X, varying Y), 1 VERTICAL (strips are columns).
+# `gap_coords` = optional Array[Vector2i] of atlas coords to leave empty (creates
+# the AUTO_STRIP gap warning C scenario when there's a populated tile after the gap).
+#
+# Builds a synthetic Image sized to fit ALL atlas coords this layout could touch,
+# filled with opaque gray pixel content (synthesis doesn't care about pixel quality
+# at this layer — paint_test verifies dispatch math + atlas registration, not art).
+func _build_multistrip_layer(strip_modes: Array, axis: int, gap_coords: Array = []) -> Node:
+	var TILE := 16
+	# Compute the bounding atlas grid this fixture needs.
+	# HORIZONTAL: cols = max(mode), rows = strip_count
+	# VERTICAL:   cols = strip_count, rows = max(mode)
+	var max_mode := 0
+	for m in strip_modes:
+		max_mode = max(max_mode, int(m))
+	var grid_cols: int
+	var grid_rows: int
+	if axis == 0:
+		grid_cols = max_mode
+		grid_rows = strip_modes.size()
+	else:
+		grid_cols = strip_modes.size()
+		grid_rows = max_mode
+
+	# Synthesize an opaque-gray Image sized to the bounding grid. Pixel quality is
+	# irrelevant for dispatch tests — we just need the create_tile bounds-check to pass.
+	var img := Image.create(grid_cols * TILE, grid_rows * TILE, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.5, 0.5, 0.5, 1.0))                                              # solid gray
+	var tex := ImageTexture.create_from_image(img)
+
+	var src := TileSetAtlasSource.new()
+	src.texture = tex
+	src.texture_region_size = Vector2i(TILE, TILE)
+
+	# Build a gap lookup keyed by Vector2i atlas coord directly.
+	var gap_set := {}
+	for g in gap_coords:
+		gap_set[g as Vector2i] = true
+
+	# Create tiles per strip's mode count, skipping gap entries.
+	for strip_index in range(strip_modes.size()):
+		var mode_count: int = int(strip_modes[strip_index])
+		for slot in range(mode_count):
+			var coord: Vector2i
+			if axis == 0:                                                            # HORIZONTAL: strips are rows
+				coord = Vector2i(slot, strip_index)
+			else:                                                                    # VERTICAL: strips are columns
+				coord = Vector2i(strip_index, slot)
+			if gap_set.has(coord):
+				continue
+			src.create_tile(coord)
+
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(TILE, TILE)
+	ts.add_source(src, 0)
+
+	var layout: Resource = _PentaScript.new()
+	layout.set("axis", axis)
+	layout.set("tile_count", -1)                                                      # AUTO_STRIP enum value
+	layout.set("_bitmask_is_preset", false)                                           # we provide our own tile_set
+
+	var layer = _LayerScript.new()
+	layer.tile_set = ts
+	layer.layout = layout
+	get_root().add_child(layer)
+	return layer
+
+
+# (a) AUTO_STRIP uniform-mode strips: 2 strips both at THREE. Verifies multi-row
+#     output atlas builds correctly + per-strip dispatch lands at correct row.
+func _test_auto_strip_uniform() -> void:
+	print("\n--- AUTO_STRIP uniform [THREE, THREE] HORIZONTAL ---")
+	var layer = _build_multistrip_layer([3, 3], 0)
+	if layer == null:
+		return
+	await process_frame
+	await process_frame
+	if layer.has_method("rebuild"):
+		layer.rebuild()
+
+	var synth: TileSet = layer.get("_synthesized_tile_set")
+	if synth == null:
+		_fail("auto_strip_uniform", "synthesized atlas null")
+		layer.queue_free()
+		return
+	var src := synth.get_source(0) as TileSetAtlasSource
+	var grid := src.get_atlas_grid_size()
+	print("  synth atlas grid=%s (expected (5, 2))" % grid)
+	if grid != Vector2i(5, 2):
+		_fail("auto_strip_uniform", "expected synth grid (5,2), got %s" % grid)
+	# Both strips populated → all 10 tiles registered.
+	for strip_index in range(2):
+		for slot in range(5):
+			if not src.has_tile(Vector2i(slot, strip_index)):
+				_fail("auto_strip_uniform", "synth atlas missing tile (%d, %d)" % [slot, strip_index])
+
+	# Per-strip dispatch: paint a cell on strip 0 (logic-atlas (0, 0)), verify mask=15
+	# (Fill cell at center of 2x2 paint) lands at synth (1, 0). Then paint on strip 1
+	# (logic-atlas (0, 1)), verify mask=15 lands at synth (1, 1).
+	for strip_index in range(2):
+		layer.clear()
+		# 2x2 painted block routes mask=15 (TL+TR+BL+BR all filled) at the center display cell.
+		var origin := Vector2i(0, 0)
+		var atlas_for_strip := Vector2i(0, strip_index)
+		for offset in [Vector2i(0,0), Vector2i(1,0), Vector2i(0,1), Vector2i(1,1)]:
+			layer.set_cell(origin + offset, 0, atlas_for_strip)
+		await process_frame
+		await process_frame
+		var primary: TileMapLayer = layer.get("_primary_layer")
+		# Center display cell = (1, 1) for a 2x2 block at origin (0,0).
+		var center_display := Vector2i(1, 1)
+		var actual_coords := primary.get_cell_atlas_coords(center_display)
+		var expected_coords := Vector2i(1, strip_index)                              # slot 1 = Fill, row = strip
+		if actual_coords != expected_coords:
+			_fail("auto_strip_uniform", "strip %d Fill dispatch: expected %s got %s" % [strip_index, expected_coords, actual_coords])
+		else:
+			print("  strip %d Fill dispatch OK: synth coord %s" % [strip_index, actual_coords])
+	layer.queue_free()
+
+
+# (b) AUTO_STRIP mixed modes: strip 0 = THREE, strip 1 = FIVE. Verifies different
+#     strips can have different mode counts in the same atlas.
+func _test_auto_strip_mixed_modes() -> void:
+	print("\n--- AUTO_STRIP mixed [THREE, FIVE] HORIZONTAL ---")
+	var layer = _build_multistrip_layer([3, 5], 0)
+	if layer == null:
+		return
+	await process_frame
+	await process_frame
+	if layer.has_method("rebuild"):
+		layer.rebuild()
+
+	var synth: TileSet = layer.get("_synthesized_tile_set")
+	if synth == null:
+		_fail("auto_strip_mixed", "synthesized atlas null")
+		layer.queue_free()
+		return
+	var src := synth.get_source(0) as TileSetAtlasSource
+	# Both strips synthesize to 5 output slots (the synth always emits 5; mode just
+	# changes which slots are authored vs synthesized). So output grid is (5, 2).
+	for strip_index in range(2):
+		for slot in range(5):
+			if not src.has_tile(Vector2i(slot, strip_index)):
+				_fail("auto_strip_mixed", "synth atlas missing tile (%d, %d)" % [slot, strip_index])
+	print("  synth atlas grid=%s (both strips populated 5 slots each)" % src.get_atlas_grid_size())
+
+	# Per-strip dispatch: same as uniform test but with strip 1 in FIVE mode.
+	for strip_index in range(2):
+		layer.clear()
+		var atlas_for_strip := Vector2i(0, strip_index)
+		for offset in [Vector2i(0,0), Vector2i(1,0), Vector2i(0,1), Vector2i(1,1)]:
+			layer.set_cell(offset, 0, atlas_for_strip)
+		await process_frame
+		await process_frame
+		var primary: TileMapLayer = layer.get("_primary_layer")
+		var actual_coords := primary.get_cell_atlas_coords(Vector2i(1, 1))
+		var expected_coords := Vector2i(1, strip_index)
+		if actual_coords != expected_coords:
+			_fail("auto_strip_mixed", "strip %d Fill dispatch: expected %s got %s" % [strip_index, expected_coords, actual_coords])
+		else:
+			print("  strip %d Fill dispatch OK: synth coord %s" % [strip_index, actual_coords])
+	layer.queue_free()
+
+
+# (c) AUTO_STRIP with internal gap. Strip 0 = FOUR with a hole at slot 1 (TL exists,
+#     slot 1 empty, slot 2 exists). resolve_strip_modes should detect the gap and
+#     return AUTO (-1) for that strip; configuration warning C should fire.
+func _test_auto_strip_with_gap() -> void:
+	print("\n--- AUTO_STRIP with gap [FOUR-with-hole] HORIZONTAL ---")
+	# Build a single horizontal strip with mode count 4 BUT a hole at slot 1: tiles at
+	# (0,0), (2,0), (3,0) — slot (1,0) is the gap. resolve_strip_modes counts
+	# CONSECUTIVE populated slots from slot 0 → finds 1, then slot 1 empty but slot 2
+	# populated → gap detected → returns AUTO (-1).
+	var layer = _build_multistrip_layer([4], 0, [Vector2i(1, 0)])                    # gap at (slot=1, strip=0)
+	if layer == null:
+		return
+	await process_frame
+	await process_frame
+	if layer.has_method("rebuild"):
+		layer.rebuild()
+
+	# Configuration warnings — verify Warning C fires.
+	var layout = layer.layout
+	var warnings: PackedStringArray = layout.get_configuration_warnings_for(layer.tile_set, 0)
+	var saw_gap_warning := false
+	for w in warnings:
+		if "AUTO_STRIP" in w and "gap" in w:
+			saw_gap_warning = true
+			print("  warning C fired: %s" % w)
+	if not saw_gap_warning:
+		_fail("auto_strip_gap", "expected AUTO_STRIP gap warning (C); got warnings=%s" % str(warnings))
+
+	# Synthesized atlas should have NO tiles in the gap strip's row.
+	var synth: TileSet = layer.get("_synthesized_tile_set")
+	if synth != null:
+		var src := synth.get_source(0) as TileSetAtlasSource
+		if src != null:
+			# Strip 0 was AUTO (-1) due to gap → its row in the synth atlas is empty.
+			var any_in_gap_row := false
+			for slot in range(5):
+				if src.has_tile(Vector2i(slot, 0)):
+					any_in_gap_row = true
+					break
+			if any_in_gap_row:
+				_fail("auto_strip_gap", "gap strip should produce empty row in synth atlas; found tiles")
+			else:
+				print("  gap strip row 0 is empty in synth atlas (graceful degradation OK)")
+	layer.queue_free()
+
+
+# (d) AUTO_STRIP VERTICAL axis: strips are columns. [4, 2] modes mean column 0 has
+#     4 authored slots running down (Y) and column 1 has 2.
+func _test_auto_strip_vertical() -> void:
+	print("\n--- AUTO_STRIP VERTICAL [FOUR, TWO] ---")
+	var layer = _build_multistrip_layer([4, 2], 1)
+	if layer == null:
+		return
+	await process_frame
+	await process_frame
+	if layer.has_method("rebuild"):
+		layer.rebuild()
+
+	var synth: TileSet = layer.get("_synthesized_tile_set")
+	if synth == null:
+		_fail("auto_strip_vertical", "synthesized atlas null")
+		layer.queue_free()
+		return
+	var src := synth.get_source(0) as TileSetAtlasSource
+	# Output atlas is ALWAYS 5 cols × N rows regardless of source axis (WR-07 extension).
+	# For VERTICAL source with 2 strips → output grid (5, 2).
+	var grid := src.get_atlas_grid_size()
+	print("  synth atlas grid=%s (output is 5 cols × N rows regardless of axis)" % grid)
+	for strip_index in range(2):
+		for slot in range(5):
+			if not src.has_tile(Vector2i(slot, strip_index)):
+				_fail("auto_strip_vertical", "synth atlas missing tile (%d, %d)" % [slot, strip_index])
+
+	# Per-strip dispatch: VERTICAL axis means strip_index = atlas_coords.x.
+	# Paint with logic-atlas (strip_index, 0) and verify dispatch.
+	for strip_index in range(2):
+		layer.clear()
+		var atlas_for_strip := Vector2i(strip_index, 0)
+		for offset in [Vector2i(0,0), Vector2i(1,0), Vector2i(0,1), Vector2i(1,1)]:
+			layer.set_cell(offset, 0, atlas_for_strip)
+		await process_frame
+		await process_frame
+		var primary: TileMapLayer = layer.get("_primary_layer")
+		var actual_coords := primary.get_cell_atlas_coords(Vector2i(1, 1))
+		var expected_coords := Vector2i(1, strip_index)
+		if actual_coords != expected_coords:
+			_fail("auto_strip_vertical", "strip %d (VERTICAL) Fill dispatch: expected %s got %s" % [strip_index, expected_coords, actual_coords])
+		else:
+			print("  VERTICAL strip %d Fill dispatch OK: synth coord %s" % [strip_index, actual_coords])
+	layer.queue_free()
 
 
 # Verifies _resolve_layout suppresses painting + emits a warning when `layout` is the

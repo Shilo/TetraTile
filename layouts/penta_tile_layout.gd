@@ -21,7 +21,13 @@ func compute_mask(_coord: Vector2i, _sample_fn: Callable) -> int:
 	return 0
 
 
-func mask_to_atlas(_mask: int) -> PentaTileAtlasSlot:
+# `strip_index` selects which Y-row of the synthesized atlas to dispatch to
+# (default 0 = single-strip atlas, matches AUTO/explicit modes for Penta and
+# all non-Penta layouts). PentaTileLayoutPenta in AUTO_STRIP mode passes a
+# resolved strip_index from `resolve_display_strip` so per-strip dispatch lands
+# at Vector2i(slot, strip_index). Layouts that don't use multi-strip atlases
+# inherit the default 0 and ignore the parameter.
+func mask_to_atlas(_mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
 	push_error("PentaTileLayout.mask_to_atlas is abstract; subclass must override.")
 	return null
 
@@ -29,6 +35,17 @@ func mask_to_atlas(_mask: int) -> PentaTileAtlasSlot:
 func is_dual_grid() -> bool:
 	push_error("PentaTileLayout.is_dual_grid is abstract; subclass must override.")
 	return true
+
+
+# Resolves which strip a painted display cell should dispatch to. Default 0
+# (single-strip atlas). Penta in AUTO_STRIP overrides to pick the strip from
+# the first non-empty TL/TR/BL/BR neighbor's source-atlas coords (per
+# Interpretation A: HORIZONTAL → coords.y, VERTICAL → coords.x).
+#
+# `sample_atlas_fn(coord: Vector2i) -> Vector2i` returns the source atlas_coords
+# of the logic cell at `coord`, or Vector2i(-1, -1) if empty.
+func resolve_display_strip(_coord: Vector2i, _sample_atlas_fn: Callable) -> int:
+	return 0
 
 
 # Returns true if this layout needs synthesis (i.e. is a PentaTileLayoutPenta instance).

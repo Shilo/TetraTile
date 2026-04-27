@@ -156,6 +156,11 @@ func _mark_affected_single_grid_cells(affected: Dictionary, logic_cell: Vector2i
 # The dispatcher per affected display cell. Computes mask once, short-circuits
 # on 0 (universal cleanup per PITFALLS §4), resolves slot, paints primary layer.
 # Overlay-layer path deleted in Wave 2 — single-layer dispatch only.
+#
+# AUTO_STRIP extension: resolve_display_strip selects the per-cell strip_index
+# from the first non-empty TL/TR/BL/BR neighbor's source-atlas coords (Penta-only;
+# base PentaTileLayout returns 0). Threaded into mask_to_atlas so per-strip
+# dispatch lands at Vector2i(slot, strip_index) in the synthesized atlas.
 func _paint_via_layout(display_cell: Vector2i, active_layout: PentaTileLayout, source: int, sample_fn: Callable) -> void:
 	_primary_layer.erase_cell(display_cell)
 
@@ -163,7 +168,10 @@ func _paint_via_layout(display_cell: Vector2i, active_layout: PentaTileLayout, s
 	if mask == 0:
 		return                                                                      # universal short-circuit (PITFALLS §4)
 
-	var slot := active_layout.mask_to_atlas(mask)
+	var atlas_sample_fn := Callable(self, "_sample_logic_atlas_coords")
+	var strip_index := active_layout.resolve_display_strip(display_cell, atlas_sample_fn)
+
+	var slot := active_layout.mask_to_atlas(mask, strip_index)
 	if slot == null:
 		return
 	_paint_with_slot(_primary_layer, slot, display_cell, source)
@@ -182,6 +190,16 @@ func _paint_with_slot(layer: TileMapLayer, slot: PentaTileAtlasSlot, display_cel
 # compute_mask Callable.
 func _has_logic_cell(logic_cell: Vector2i) -> bool:
 	return get_cell_source_id(logic_cell) != -1
+
+
+# AUTO_STRIP per-strip dispatch helper. Returns the source atlas_coords the user
+# painted at `logic_cell` on the LOGIC layer (this PentaTileMapLayer itself, NOT
+# the synthesized display layer). Returns Vector2i(-1, -1) when the cell is empty.
+# Threaded into PentaTileLayoutPenta.resolve_display_strip via Callable.
+func _sample_logic_atlas_coords(logic_cell: Vector2i) -> Vector2i:
+	if get_cell_source_id(logic_cell) == -1:
+		return Vector2i(-1, -1)
+	return get_cell_atlas_coords(logic_cell)
 
 
 # LAYER-02: read self.layout directly (one fewer hop than the prior contract chain).
@@ -328,6 +346,51 @@ func _ensure_synthesized_tile_set(penta: PentaTileLayout, source_id: int) -> voi
 	var penta_axis: int = penta.get("axis") if penta.get("axis") != null else 0
 	var penta_tile_count: int = penta.get("tile_count") if penta.get("tile_count") != null else 0
 	var source_tile_set_id := tile_set.get_instance_id() if tile_set != null else 0
+
+	# AUTO_STRIP enum value is -1 (TileCountMode.AUTO_STRIP). Branch on the RAW
+	# tile_count, not the resolve_active_mode result (which returns AUTO_STRIP
+	# unchanged for AUTO_STRIP). Per-strip path: call resolve_strip_modes,
+	# loop strips, fold into a 5×N atlas via build_tile_set_from_synthesis(Array).
+	const _AUTO_STRIP := -1
+	if penta_tile_count == _AUTO_STRIP:
+		# Cache key: hash strip_modes vector (recomputed every coalesced rebuild,
+		# matches WR-02 pattern for AUTO mode drift detection).
+		var strip_modes: Array = []
+		if penta.has_method("resolve_strip_modes") and tile_set != null and source_id >= 0:
+			strip_modes = penta.call("resolve_strip_modes", tile_set, source_id)
+		var sig_strip := hash([
+			penta.get_instance_id(),
+			penta_axis,
+			penta_tile_count,
+			source_tile_set_id,
+			source_id,
+			strip_modes,
+		])
+		if sig_strip == _synthesis_signature and _synthesized_tile_set != null:
+			return
+		_synthesis_signature = sig_strip
+		_synthesized_tile_set = null
+		if tile_set == null or source_id < 0 or strip_modes.is_empty():
+			return
+		# Synthesize per-strip with the default strip_origin sentinel
+		# (synthesize_strip now uses Interpretation A: HORIZONTAL → (0, i), VERTICAL → (i, 0)).
+		# Empty/unresolved strips append null → row stays empty in the output atlas.
+		var strip_results: Array = []
+		for i in range(strip_modes.size()):
+			var strip_mode: int = int(strip_modes[i])
+			if strip_mode < 1 or strip_mode > 5:
+				strip_results.append(null)
+				continue
+			var r: Dictionary = _PentaTileSynthesis.synthesize_strip(tile_set, source_id, penta_axis, i, strip_mode)
+			strip_results.append(r)
+		var synthesized_strip: TileSet = _PentaTileSynthesis.build_tile_set_from_synthesis(strip_results)
+		if synthesized_strip == null:
+			push_warning("PentaTileMapLayer: AUTO_STRIP synthesis produced no atlas (strip_modes=%s)" % str(strip_modes))
+			return
+		_synthesized_tile_set = synthesized_strip
+		return
+
+	# AUTO + explicit ONE..FIVE path (single-strip output atlas).
 	# WR-02 FIX: resolve AUTO/AUTO_STRIP → concrete mode BEFORE building the cache
 	# signature so AUTO drift (e.g., user mutates atlas to add a 5th tile while AUTO is
 	# active) re-triggers synthesis. The prior order built the signature from the raw
@@ -352,9 +415,7 @@ func _ensure_synthesized_tile_set(penta: PentaTileLayout, source_id: int) -> voi
 	if tile_set == null or source_id < 0:
 		return   # no source — Phase 4 fallback path (PREVIEW-03/04) handles null tile_set
 	if mode < 1 or mode > 5:
-		# Unresolved (AUTO with axis_size 0 or 6+; or AUTO_STRIP returns AUTO_STRIP itself —
-		# per-strip dispatch is a future expansion; for now AUTO_STRIP renders empty until per-strip
-		# dispatch lands. NO stub fallback to user tile_set — caller renders nothing.)
+		# Unresolved AUTO with axis_size 0 or 6+. NO stub fallback — caller renders nothing.
 		return
 	var result: Dictionary = _PentaTileSynthesis.synthesize_strip(tile_set, source_id, penta_axis, 0, mode)
 	if result.is_empty() or not result.has("slots"):

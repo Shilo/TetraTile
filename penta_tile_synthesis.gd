@@ -49,23 +49,26 @@ const _TRANSFORM_TRANSPOSE := TileSetAtlasSource.TRANSFORM_TRANSPOSE  # 16384
 
 ## Synthesizes a single strip of _STRIP_SLOT_COUNT (5) slots from `source_tile_set`.
 ##
+## STRIP LAYOUT (Interpretation A — locked): strips are PERPENDICULAR to the slot
+## axis. For HORIZONTAL slots, each strip is a row at fixed Y; for VERTICAL slots,
+## each strip is a column at fixed X. Strip i's slot 0 lives at a deterministic
+## source coord based on `strip_index` alone — independent of other strips' tile
+## counts. This matches `PentaTileLayoutPenta.resolve_strip_modes`.
+##
 ## Parameters:
 ##   source_tile_set – user's TileSet (NOT mutated)
 ##   source_id       – atlas source id within source_tile_set
 ##   axis            – 0 = HORIZONTAL (slots along X), 1 = VERTICAL (slots along Y)
-##   strip_index     – which strip (0 = first row/column). Used as a fallback
-##                     descriptor when strip_origin is not supplied; for AUTO_STRIP
-##                     dispatch where strips have heterogeneous widths, callers MUST
-##                     supply strip_origin explicitly.
+##   strip_index     – which strip (0 = first row/column under Interpretation A)
 ##   mode            – MODE_ONE..MODE_FIVE
 ##   strip_origin    – Optional Vector2i source-atlas coord of slot 0 of THIS strip.
-##                     Default Vector2i(-1, -1) sentinel → derive from strip_index
-##                     using the legacy uniform-_STRIP_SLOT_COUNT-stride formula
-##                     (correct only when ALL prior strips have width _STRIP_SLOT_COUNT,
-##                     i.e. strip_index == 0 in non-AUTO_STRIP mode). WR-03 FIX:
-##                     AUTO_STRIP per-strip dispatch passes the cumulative offset
-##                     based on prior strips' resolved modes — that origin lives only
-##                     at the call site.
+##                     Default Vector2i(-1, -1) sentinel uses strip_index alone:
+##                       HORIZONTAL: (0, strip_index)
+##                       VERTICAL:   (strip_index, 0)
+##                     Callers may override (e.g., synthetic test fixtures with
+##                     non-canonical strip placement) but the default is correct
+##                     for AUTO_STRIP per-strip dispatch and for the single-strip
+##                     AUTO/explicit case (strip_index = 0).
 ##
 ## Returns Dictionary:
 ##   { "slots": Array[Dictionary], "tile_size": Vector2i, "warnings": Array[String] }
@@ -109,17 +112,17 @@ static func synthesize_strip(
 	var authored_count := mode  # slot 0 always + (mode-1) more = mode slots total
 
 	# Resolve strip_origin: source-atlas coord of slot 0 of THIS strip.
-	# WR-03 FIX: explicit strip_origin from caller is the only way to get correct
-	# coords when prior strips have non-_STRIP_SLOT_COUNT widths (AUTO_STRIP). The
-	# default Vector2i(-1,-1) sentinel falls back to the legacy uniform-stride
-	# formula, which is correct only when ALL prior strips are width _STRIP_SLOT_COUNT
-	# (the strip_index == 0 case used by today's _ensure_synthesized_tile_set).
+	# Under Interpretation A (strips perpendicular to slot axis), each strip's
+	# slot 0 lives at a deterministic coord based on strip_index alone. The prior
+	# `strip_index * _STRIP_SLOT_COUNT` formula (matching neither Interpretation
+	# A nor the docstring's prior "cumulative offset" claim) was wrong for any
+	# strip_index > 0; it only worked accidentally when strip_index == 0.
 	var slot0_coords: Vector2i
 	if strip_origin == Vector2i(-1, -1):
-		if axis == 0:
-			slot0_coords = Vector2i(strip_index * _STRIP_SLOT_COUNT, 0)
-		else:
-			slot0_coords = Vector2i(0, strip_index * _STRIP_SLOT_COUNT)
+		if axis == 0:                                                                # HORIZONTAL: strips are rows at varying Y
+			slot0_coords = Vector2i(0, strip_index)
+		else:                                                                         # VERTICAL: strips are columns at varying X
+			slot0_coords = Vector2i(strip_index, 0)
 	else:
 		slot0_coords = strip_origin
 
@@ -323,55 +326,92 @@ static func validate_tile_size(tile_size: Vector2i) -> Array:
 	return warnings
 
 
-## Builds a runtime TileSet from synthesize_strip output.
+## Builds a runtime TileSet from synthesize_strip output(s).
+##
+## Accepts EITHER a single result Dictionary (AUTO/explicit modes — produces a
+## 5-col × 1-row atlas) OR an Array[Dictionary] (AUTO_STRIP — produces a 5-col ×
+## N-row atlas where N = array length). Tile coords in the synthesized atlas are
+## Vector2i(slot, strip_index); for the single-Dict / N=1 case strip_index is
+## always 0 → bit-identical to the prior single-strip output.
+##
+## For the Array[Dict] form, `null` entries (or empty dicts) represent
+## gap/unresolved strips and produce empty rows in the output atlas — painted
+## cells dispatched to those strips will hit `has_tile() == false` and render
+## empty (graceful degradation).
+##
 ## The new TileSet contains one TileSetAtlasSource whose texture is composed from
 ## the slot images returned by synthesize_strip; collision/occlusion/navigation
-## polygons are copied per Gate 2.
-## The user's source TileSet is never mutated.
+## polygons are copied per Gate 2. The user's source TileSet is never mutated.
 ##
 ## Sub-region resize uses Image.INTERPOLATE_NEAREST exclusively (PENTA-SYNTH-06
 ## determinism — non-NEAREST produces pixel drift across runs).
 ##
-## Returns null if result is empty or tile_size is zero.
-static func build_tile_set_from_synthesis(result: Dictionary) -> TileSet:
-	if result.is_empty() or not result.has("slots"):
+## Returns null on hard failure (no usable strip with consistent tile_size).
+static func build_tile_set_from_synthesis(result) -> TileSet:
+	# Normalize: accept Dictionary or Array[Dictionary] uniformly. Single-Dict callers
+	# get a 1-row atlas; multi-Dict callers get an N-row atlas. Same builder either way.
+	var strip_results: Array = []
+	if result is Dictionary:
+		strip_results = [result]
+	elif result is Array:
+		strip_results = result
+	else:
 		return null
-	var slots: Array = result["slots"]
-	var tile_size: Vector2i = result["tile_size"]
-	if slots.is_empty() or tile_size == Vector2i.ZERO:
+	if strip_results.is_empty():
 		return null
 
-	# Compose strip image: one tile_size per slot, laid out horizontally.
-	var strip_width: int = tile_size.x * slots.size()
-	var strip_image := Image.create(strip_width, tile_size.y, false, Image.FORMAT_RGBA8)
-	strip_image.fill(Color(0.0, 0.0, 0.0, 0.0))  # transparent background
+	# Pick canonical tile_size + layer counts from the first non-empty strip.
+	# All strips MUST share tile_size (same source TileSet); empty strips contribute
+	# no metadata (their row in the output atlas stays empty).
+	var tile_size: Vector2i = Vector2i.ZERO
+	var physics_count: int = 0
+	var occlusion_count: int = 0
+	var navigation_count: int = 0
+	for r in strip_results:
+		if r is Dictionary and not r.is_empty() and r.has("slots") and not r["slots"].is_empty():
+			var ts_v: Vector2i = r.get("tile_size", Vector2i.ZERO)
+			if ts_v != Vector2i.ZERO:
+				tile_size = ts_v
+				physics_count = r.get("physics_layer_count", 0)
+				occlusion_count = r.get("occlusion_layer_count", 0)
+				navigation_count = r.get("navigation_layer_count", 0)
+				break
+	if tile_size == Vector2i.ZERO:
+		return null
 
-	for i in range(slots.size()):
-		var slot_dict: Dictionary = slots[i]
-		var slot_image: Image = slot_dict.get("image", null)
-		if slot_image == null:
-			# Create a blank transparent slot image.
-			slot_image = Image.create(tile_size.x, tile_size.y, false, Image.FORMAT_RGBA8)
-			slot_image.fill(Color(0.0, 0.0, 0.0, 0.0))
-		# Ensure correct size (resize with NEAREST if needed).
-		if slot_image.get_size() != tile_size:
-			slot_image.resize(tile_size.x, tile_size.y, Image.INTERPOLATE_NEAREST)
-		# Blit slot image into strip at (i * tile_size.x, 0).
-		strip_image.blit_rect(
-			slot_image,
-			Rect2i(Vector2i.ZERO, tile_size),
-			Vector2i(i * tile_size.x, 0)
-		)
+	# Compose atlas image: 5 cols × N rows. Each strip i populates row i.
+	var n_strips: int = strip_results.size()
+	var atlas_width: int = tile_size.x * _STRIP_SLOT_COUNT
+	var atlas_height: int = tile_size.y * n_strips
+	var atlas_image := Image.create(atlas_width, atlas_height, false, Image.FORMAT_RGBA8)
+	atlas_image.fill(Color(0.0, 0.0, 0.0, 0.0))                                       # transparent background
+
+	for strip_index in range(n_strips):
+		var strip = strip_results[strip_index]
+		if not (strip is Dictionary) or strip.is_empty() or not strip.has("slots"):
+			continue                                                                  # gap/unresolved strip — row stays empty
+		var slots: Array = strip["slots"]
+		if slots.is_empty():
+			continue
+		for slot_i in range(slots.size()):
+			var slot_dict: Dictionary = slots[slot_i]
+			var slot_image: Image = slot_dict.get("image", null)
+			if slot_image == null:
+				slot_image = Image.create(tile_size.x, tile_size.y, false, Image.FORMAT_RGBA8)
+				slot_image.fill(Color(0.0, 0.0, 0.0, 0.0))
+			if slot_image.get_size() != tile_size:
+				slot_image.resize(tile_size.x, tile_size.y, Image.INTERPOLATE_NEAREST)
+			atlas_image.blit_rect(
+				slot_image,
+				Rect2i(Vector2i.ZERO, tile_size),
+				Vector2i(slot_i * tile_size.x, strip_index * tile_size.y)
+			)
 
 	var ts := TileSet.new()
 	ts.tile_size = tile_size
 
 	# Mirror physics/occlusion/navigation layers from the source TileSet so
 	# _copy_polygons_to_tile_data can write polygons without out-of-bounds errors.
-	# (Rule 1 fix: synthesized TileSet starts bare with 0 layers of each type.)
-	var physics_count: int = result.get("physics_layer_count", 0)
-	var occlusion_count: int = result.get("occlusion_layer_count", 0)
-	var navigation_count: int = result.get("navigation_layer_count", 0)
 	for _i in range(physics_count):
 		ts.add_physics_layer()
 	for _i in range(occlusion_count):
@@ -380,20 +420,25 @@ static func build_tile_set_from_synthesis(result: Dictionary) -> TileSet:
 		ts.add_navigation_layer()
 
 	var src := TileSetAtlasSource.new()
-	src.texture = ImageTexture.create_from_image(strip_image)
+	src.texture = ImageTexture.create_from_image(atlas_image)
 	src.texture_region_size = tile_size
-	var added_id := ts.add_source(src, 0)
+	ts.add_source(src, 0)
 
-	# Create one tile per slot at atlas_coords (slot_index, 0).
-	for i in range(slots.size()):
-		var atlas_coords := Vector2i(i, 0)
-		src.create_tile(atlas_coords)
-		var tile_data := src.get_tile_data(atlas_coords, 0)
-		if tile_data == null:
+	# Create one tile per (slot, strip_index) for non-empty strips.
+	for strip_index in range(n_strips):
+		var strip = strip_results[strip_index]
+		if not (strip is Dictionary) or strip.is_empty() or not strip.has("slots"):
 			continue
-		var slot_dict: Dictionary = slots[i]
-		var polygons: Dictionary = slot_dict.get("polygons", {})
-		_copy_polygons_to_tile_data(tile_data, polygons)
+		var slots: Array = strip["slots"]
+		for slot_i in range(slots.size()):
+			var atlas_coords := Vector2i(slot_i, strip_index)
+			src.create_tile(atlas_coords)
+			var tile_data := src.get_tile_data(atlas_coords, 0)
+			if tile_data == null:
+				continue
+			var slot_dict: Dictionary = slots[slot_i]
+			var polygons: Dictionary = slot_dict.get("polygons", {})
+			_copy_polygons_to_tile_data(tile_data, polygons)
 
 	return ts
 

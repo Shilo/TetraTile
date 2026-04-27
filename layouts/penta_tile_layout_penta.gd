@@ -151,7 +151,10 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 # Masks 6 and 9 use slot 4 (OppositeCorners) directly — single-layer paint, no
 # overlay. The complement-corner pixels are pre-baked into slot 4 by synthesis
 # (FIVE mode) or hand-authored (FIVE mode authored explicitly).
-func mask_to_atlas(mask: int) -> PentaTileAtlasSlot:
+#
+# strip_index (default 0) is the synthesized atlas Y-row to dispatch to. AUTO_STRIP
+# resolves per painted cell via `resolve_display_strip`; AUTO/explicit always 0.
+func mask_to_atlas(mask: int, strip_index: int = 0) -> PentaTileAtlasSlot:
 	match mask:
 		0:
 			return null
@@ -159,63 +162,91 @@ func mask_to_atlas(mask: int) -> PentaTileAtlasSlot:
 			# TL only → OuterCorner via rotation reuse on slot 0 — Path B locked, see
 			# 02-02-PLAN.md Gate 1 OuterCorner row + clarifying paragraph (PentaTile does NOT
 			# synthesize a dedicated OuterCorner cell; slot 0 is rendered with _ROTATE_90).
-			return _make_slot(_SLOT_ISOLATED_CELL, _ROTATE_90)
+			return _make_slot(_SLOT_ISOLATED_CELL, _ROTATE_90, strip_index)
 		2:
 			# TR only → OuterCorner via rotation reuse on slot 0 — Path B locked, see
 			# 02-02-PLAN.md Gate 1 OuterCorner row + clarifying paragraph.
-			return _make_slot(_SLOT_ISOLATED_CELL, _ROTATE_180)
+			return _make_slot(_SLOT_ISOLATED_CELL, _ROTATE_180, strip_index)
 		3:
 			# TL + TR → border facing top
-			return _make_slot(_SLOT_BORDER, _ROTATE_180)
+			return _make_slot(_SLOT_BORDER, _ROTATE_180, strip_index)
 		4:
 			# BL only → OuterCorner via rotation reuse on slot 0 — Path B locked, see
 			# 02-02-PLAN.md Gate 1 OuterCorner row + clarifying paragraph.
-			return _make_slot(_SLOT_ISOLATED_CELL, _ROTATE_0)
+			return _make_slot(_SLOT_ISOLATED_CELL, _ROTATE_0, strip_index)
 		5:
-			return _make_slot(_SLOT_BORDER, _ROTATE_90)
+			return _make_slot(_SLOT_BORDER, _ROTATE_90, strip_index)
 		6:
 			# TR + BL = "/" diagonal — OppositeCorners with TRANSFORM_FLIP_H (vs PentaTile's _ROTATE_0 anchor on mask 9)
-			return _make_slot(_SLOT_OPPOSITE_CORNERS, TileSetAtlasSource.TRANSFORM_FLIP_H)
+			return _make_slot(_SLOT_OPPOSITE_CORNERS, TileSetAtlasSource.TRANSFORM_FLIP_H, strip_index)
 		7:
-			return _make_slot(_SLOT_INNER_CORNER, _ROTATE_90)
+			return _make_slot(_SLOT_INNER_CORNER, _ROTATE_90, strip_index)
 		8:
 			# BR only → OuterCorner via rotation reuse on slot 0 — Path B locked, see
 			# 02-02-PLAN.md Gate 1 OuterCorner row + clarifying paragraph.
-			return _make_slot(_SLOT_ISOLATED_CELL, _ROTATE_270)
+			return _make_slot(_SLOT_ISOLATED_CELL, _ROTATE_270, strip_index)
 		9:
 			# TL + BR = "\\" diagonal — OppositeCorners ANCHOR (PentaTile canonical _ROTATE_0)
-			return _make_slot(_SLOT_OPPOSITE_CORNERS, _ROTATE_0)
+			return _make_slot(_SLOT_OPPOSITE_CORNERS, _ROTATE_0, strip_index)
 		10:
-			return _make_slot(_SLOT_BORDER, _ROTATE_270)
+			return _make_slot(_SLOT_BORDER, _ROTATE_270, strip_index)
 		11:
-			return _make_slot(_SLOT_INNER_CORNER, _ROTATE_180)
+			return _make_slot(_SLOT_INNER_CORNER, _ROTATE_180, strip_index)
 		12:
-			return _make_slot(_SLOT_BORDER, _ROTATE_0)
+			return _make_slot(_SLOT_BORDER, _ROTATE_0, strip_index)
 		13:
-			return _make_slot(_SLOT_INNER_CORNER, _ROTATE_0)
+			return _make_slot(_SLOT_INNER_CORNER, _ROTATE_0, strip_index)
 		14:
-			return _make_slot(_SLOT_INNER_CORNER, _ROTATE_270)
+			return _make_slot(_SLOT_INNER_CORNER, _ROTATE_270, strip_index)
 		15:
-			return _make_slot(_SLOT_FILL, _ROTATE_0)
+			return _make_slot(_SLOT_FILL, _ROTATE_0, strip_index)
 	push_error("PentaTileLayoutPenta.mask_to_atlas got out-of-range mask %d" % mask)
 	return null
 
 
-# Build an AtlasSlot — always returns horizontal-strip coords.
+# Build an AtlasSlot — output coords are Vector2i(slot_index, strip_index).
 #
-# WR-07 FIX: the SYNTHESIZED atlas is ALWAYS a horizontal strip regardless of `axis`
-# (see PentaTileSynthesis.build_tile_set_from_synthesis — strip_width = tile_size.x *
-# slots.size(); tiles registered at Vector2i(i, 0) only). The user-facing `axis` enum
-# governs only which axis the synthesizer WALKS when reading the source TileSet —
-# the OUTPUT layout is invariant. Therefore _make_slot must always return
-# Vector2i(slot_index, 0); a vertical Vector2i(0, slot_index) lookup hits an
-# unregistered atlas coord and renders empty (the latent BLOCKER from the audit).
-func _make_slot(slot_index: int, transform_flags: int) -> PentaTileAtlasSlot:
+# WR-07 FIX: the SYNTHESIZED atlas is ALWAYS a horizontal strip regardless of `axis`.
+# The user-facing `axis` enum governs only which axis the synthesizer WALKS when
+# reading the source TileSet — the OUTPUT layout is invariant in the slot dimension.
+#
+# AUTO_STRIP extension: the OUTPUT atlas is 5 cols × N rows where N = strip count.
+# strip_index selects the Y-row. For AUTO/explicit modes (single-strip output),
+# strip_index is always 0 → output coord (slot_index, 0), bit-identical to the
+# pre-AUTO_STRIP behavior. For AUTO_STRIP, the layer threads a per-display-cell
+# strip_index from `resolve_display_strip` so per-strip dispatch lands at
+# Vector2i(slot_index, strip_index).
+func _make_slot(slot_index: int, transform_flags: int, strip_index: int = 0) -> PentaTileAtlasSlot:
 	var slot := PentaTileAtlasSlot.new()
-	slot.atlas_coords = Vector2i(slot_index, 0)                                      # synthesized atlas is always horizontal
+	slot.atlas_coords = Vector2i(slot_index, strip_index)                            # synthesized atlas: 5 cols × N rows
 	slot.transform_flags = transform_flags
 	slot.alternative_tile = 0                                                        # no variation in Phase 2
 	return slot
+
+
+# AUTO_STRIP per-strip dispatch: returns the strip_index for `coord` based on the
+# FIRST non-empty TL/TR/BL/BR neighbor's source-atlas coords (canonical order).
+# AUTO/explicit modes always return 0 (single-strip output atlas).
+#
+# RULE (locked): scan neighbors in TL → TR → BL → BR order; the first non-empty
+# neighbor's source-atlas coord component (Y for HORIZONTAL, X for VERTICAL)
+# becomes the strip_index. If all 4 neighbors empty, return 0 (caller's mask
+# will be 0 anyway → erase, strip_index irrelevant).
+#
+# DOCUMENTED v0.2 LIMITATION: when the 4 neighbors disagree on strip identity
+# (different terrains adjacent), the FIRST non-empty neighbor's strip wins for
+# the entire 16-state mask dispatch at this display cell. The visual boundary
+# between two different-mode strips may render wrong — proper terrain
+# transitions are MULTITERR-* in the v2 backlog (out of v0.2 scope).
+func resolve_display_strip(coord: Vector2i, sample_atlas_fn: Callable) -> int:
+	if tile_count != TileCountMode.AUTO_STRIP:
+		return 0                                                                      # single-strip output for AUTO/explicit
+	# Same neighbor offsets compute_mask uses (TL/TR/BL/BR).
+	for offset in [_TL, _TR, _BL, _BR]:
+		var atlas_coords: Vector2i = sample_atlas_fn.call(coord + offset)
+		if atlas_coords.x >= 0 and atlas_coords.y >= 0:                              # non-empty (Vector2i(-1,-1) sentinel = empty)
+			return atlas_coords.y if axis == Axis.HORIZONTAL else atlas_coords.x
+	return 0                                                                          # all neighbors empty (mask will be 0)
 
 
 # ---------------------------------------------------------------------------
@@ -264,19 +295,32 @@ func resolve_strip_modes(tile_set: TileSet, source_id: int) -> Array:
 	var strip_axis_size: int = grid_size.x if axis == Axis.HORIZONTAL else grid_size.y
 	var strip_count: int = grid_size.y if axis == Axis.HORIZONTAL else grid_size.x
 	for strip_index in range(strip_count):
+		# Gap detection per the locked spec:
+		#   populated [1,1,1,0,0] → THREE  (trailing empties OK — short strip in a
+		#                                     wider atlas where other strips are longer)
+		#   populated [1,1,0,1,0] → AUTO   (gap: empty followed by populated)
+		#
+		# Algorithm: count consecutive populated slots from slot 0. Once we see an
+		# empty slot, we mark `seen_empty = true`. If we then see ANY populated slot
+		# while `seen_empty` is true, that's a gap → AUTO. Otherwise the
+		# `populated_count` we accumulated before the first empty IS the strip's mode.
 		var populated_count := 0
+		var seen_empty := false
 		var gap_detected := false
 		for slot in range(strip_axis_size):
 			var atlas_coords: Vector2i = (
 				Vector2i(slot, strip_index) if axis == Axis.HORIZONTAL
 				else Vector2i(strip_index, slot)
 			)
-			if src.has_tile(atlas_coords):
+			var populated := src.has_tile(atlas_coords)
+			if populated:
+				if seen_empty:
+					# Empty THEN populated = gap. Strip is malformed.
+					gap_detected = true
+					break
 				populated_count += 1
-			elif populated_count > 0:
-				# Gap detected — strip is malformed. Record AUTO (== 0; caller treats as malformed).
-				gap_detected = true
-				break
+			else:
+				seen_empty = true
 		if gap_detected:
 			modes.append(TileCountMode.AUTO)
 		else:
