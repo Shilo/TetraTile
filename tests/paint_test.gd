@@ -597,30 +597,36 @@ func _test_native_layout_bitmask_autofill() -> void:
 
 
 func _test_explicit_mode_smaller_than_atlas() -> void:
-	# tile_count=THREE on a 5-tile atlas: slots 0/1/2 copied from source, slots
-	# 3/4 synthesized from slot 0. Verifies (a) the synthesized atlas registers
-	# tiles at all 5 slot positions, (b) the dispatcher routes correctly, (c)
-	# slots 3/4 have non-zero opacity (synthesized art is visible).
-	print("--- explicit tile_count=THREE on 5-tile atlas ---")
-	# Use the bundled FIVE-mode horizontal Penta PNG as a 5-tile source.
-	var tex := load("res://addons/penta_tile/layouts/penta_tile_layout_penta/five_horizontal.png") as Texture2D
+	# tile_count=TWO on a 4-tile atlas: slots 0/1 copied from source, slots
+	# 2/3/4 synthesized from slot 0. Verifies (a) the synthesized atlas
+	# registers tiles at all 5 slot positions, (b) the dispatcher routes
+	# correctly, (c) slots 2/3/4 have non-zero opacity (synthesized art is
+	# visible).
+	#
+	# Uses the bundled FOUR-mode greybox (full-silhouette slot 0) as the
+	# source — synthesis recipes need slot 0's center / bottom-half / TL+BR
+	# regions to produce real art. The FIVE-mode greybox has BL-only slot 0
+	# which makes synth from slot 0 produce empty slot 4 (correct behavior
+	# but uninteresting as a test fixture).
+	print("--- explicit tile_count=TWO on 4-tile atlas ---")
+	var tex := load("res://addons/penta_tile/layouts/penta_tile_layout_penta/four_horizontal.png") as Texture2D
 	if tex == null:
-		_fail("explicit_mode_smaller", "could not load FIVE-mode bundled PNG as test source")
+		_fail("explicit_mode_smaller", "could not load FOUR-mode bundled PNG as test source")
 		return
 	var ts := TileSet.new()
 	var atlas_source := TileSetAtlasSource.new()
 	atlas_source.texture = tex
-	var tile_size := Vector2i(tex.get_width() / 5, tex.get_height())
+	var tile_size := Vector2i(tex.get_width() / 4, tex.get_height())
 	atlas_source.texture_region_size = tile_size
-	for i in range(5):
+	for i in range(4):
 		atlas_source.create_tile(Vector2i(i, 0))
 	ts.add_source(atlas_source, 0)
 	ts.tile_size = tile_size
 
-	# Layer with tile_count=THREE explicit on a 5-tile atlas.
+	# Layer with tile_count=TWO explicit on a 4-tile atlas.
 	var layout: Resource = _PentaScript.new()
 	layout.set("axis", 0)                                                                # HORIZONTAL
-	layout.set("tile_count", 3)                                                          # THREE
+	layout.set("tile_count", 2)                                                          # TWO
 	var layer: Node = _LayerScript.new()
 	layer.tile_set = ts
 	layer.layout = layout
@@ -643,11 +649,11 @@ func _test_explicit_mode_smaller_than_atlas() -> void:
 		if not synth_src.has_tile(Vector2i(slot, 0)):
 			_fail("explicit_mode_smaller", "synthesized slot %d not registered (expected all 5 slots present)" % slot)
 
-	# Verify slots 3/4 (synthesized from slot 0) have visible art.
+	# Verify slots 2/3/4 (synthesized from slot 0) have visible art.
 	var img: Image = synth_src.texture.get_image() if synth_src.texture != null else null
 	if img != null:
 		var region := synth_src.texture_region_size
-		for slot: int in [3, 4]:
+		for slot: int in [2, 3, 4]:
 			var x0: int = slot * region.x
 			var opaque := 0
 			for y in range(region.y):
@@ -655,7 +661,7 @@ func _test_explicit_mode_smaller_than_atlas() -> void:
 					if img.get_pixel(x0 + x, y).a > 0.01:
 						opaque += 1
 			if opaque == 0:
-				_fail("explicit_mode_smaller", "synthesized slot %d (THREE-mode synth from slot 0) has zero opaque pixels" % slot)
+				_fail("explicit_mode_smaller", "synthesized slot %d (TWO-mode synth from slot 0) has zero opaque pixels" % slot)
 			else:
 				print("  slot %d (synthesized): %d opaque pixels" % [slot, opaque])
 

@@ -29,13 +29,14 @@ const _LayerScript = preload("res://addons/penta_tile/penta_tile_map_layer.gd")
 #   3429057564 — null-layout fallback in _sync_visual_layers.
 #   4075543519 — bundled FIVE-mode greybox slot 0 = BL-quadrant only.
 #   480538583  — removed slot outlines from bundled greyboxes.
-#   4100093049 — current: PentaTileMapLayer.layout default = fresh
-#                PentaTileLayoutPenta.new() (so dropping a node into a scene
-#                gives a working autotile out of the box). Fresh node load
-#                briefly transitions through the default Penta before .tscn's
-#                saved layout (Wang2Edge in the determinism scene) overwrites,
-#                shifting transient tile_set state recorded in the synth atlas.
-const BASELINE_HASH := 4100093049
+#   4100093049 — PentaTileMapLayer.layout default = fresh PentaTileLayoutPenta.
+#   1693834751 — current: FIVE-mode greybox slot 0 BL fill corrected from
+#                17×16 (1-px overflow into BR column) to exactly 16×16. The
+#                overflow column rotated into visible "bump" artifacts at
+#                cell edges in the editor; user reported and confirmed via
+#                screenshot. Synthesized atlas pixels shifted; dispatch
+#                table + paint coords unchanged.
+const BASELINE_HASH := 1693834751
 
 # Expected painted cell count for the demo scene's PentaTileMapLayer. Used by both
 # the main HORIZONTAL test and sub-test (c) VERTICAL coverage. If WR-07 regresses

@@ -13,6 +13,7 @@
 param(
     [string]$Test = "all",
     [switch]$Windowed,
+    [switch]$NoPause,
     [string]$GodotExe = "C:\Programming_Files\Godot\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64.exe"
 )
 
@@ -133,6 +134,14 @@ if ($failures -eq 0) {
     Write-Host "ALL GREEN ($($results.Count) tests)" -ForegroundColor Green
 } else {
     Write-Host "$failures of $($results.Count) FAILED" -ForegroundColor Red
+}
+
+# Pause so the window stays open when launched via double-click / explorer.
+# -NoPause flag skips this for CI / scripted invocations.
+if (-not $NoPause) {
+    Write-Host ""
+    Write-Host "Press any key to close..." -ForegroundColor DarkGray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }
 
 exit $failures

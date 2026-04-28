@@ -126,7 +126,12 @@ def draw_penta_isolated_cell(draw, col, row, bl_only=False):
     ox, oy = col * TILE, row * TILE
     if bl_only:
         # BL quadrant only — pixels x:0-15, y:16-31 in 32x32 tile coords.
-        draw.rectangle((ox, oy + 16, ox + 16, oy + TILE), fill=GREY)
+        # PIL's draw.rectangle endpoints are INCLUSIVE on both ends, so to fill
+        # exactly 16x16 pixels (the BL quadrant) we use (0, 16) → (15, 31).
+        # Earlier (ox+16, oy+TILE) overran by 1 column into BR territory; that
+        # overflow column survived rotation as a visible "bump" artifact at
+        # the edges of OuterCorner-rendered cells.
+        draw.rectangle((ox, oy + 16, ox + 15, oy + TILE - 1), fill=GREY)
         return
     # Full silhouette
     draw.rectangle((ox + 8, oy + 8, ox + 24, oy + 24), fill=GREY)
