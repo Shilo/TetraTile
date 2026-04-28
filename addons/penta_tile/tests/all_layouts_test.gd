@@ -242,18 +242,14 @@ func _expected_dual_grid_16(mask: int) -> Variant:
 	return [Vector2i(mask % 4, mask / 4), 0]
 
 
-# Wang2Edge: same atlas coordinate formula as DualGrid16 (different bit semantics
-# but mask N still maps to atlas (N % 4, N / 4)).
+# Wang2Edge: atlas (mask % 4, mask / 4). Single-grid layouts dispatch mask=0
+# to atlas (0, 0) (a logic-painted isolated cell still needs to render).
 func _expected_wang_2_edge(mask: int) -> Variant:
-	if mask == 0:
-		return null
 	return [Vector2i(mask % 4, mask / 4), 0]
 
 
-# Wang2Corner: same atlas coordinate formula as DualGrid16.
+# Wang2Corner: same atlas coordinate formula as Wang2Edge.
 func _expected_wang_2_corner(mask: int) -> Variant:
-	if mask == 0:
-		return null
 	return [Vector2i(mask % 4, mask / 4), 0]
 
 
@@ -262,8 +258,9 @@ func _expected_wang_2_corner(mask: int) -> Variant:
 #   col = 0 if (open_w and not open_e) else 2 if (open_e and not open_w) else 1
 #   row = 0 if (open_t and not open_b) else 2 if (open_b and not open_t) else 1
 func _expected_min_3x3(mask: int) -> Variant:
-	if mask == 0:
-		return null
+	# mask=0 falls through to (1, 1) center per the open-side rule (all open
+	# means neither col 0 nor col 2, neither row 0 nor row 2). Logic-painted
+	# isolated cells must still render in single-grid layouts.
 	var open_t := (mask & 1) == 0
 	var open_e := (mask & 2) == 0
 	var open_b := (mask & 4) == 0

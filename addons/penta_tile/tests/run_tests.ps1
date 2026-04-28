@@ -60,6 +60,7 @@ try {
         "layout_swap_test",
         "all_layouts_swap_pixel_test",
         "bitmask_bounds_test",
+        "comprehensive_bitmask_test",
         "determinism_test"
     )
 

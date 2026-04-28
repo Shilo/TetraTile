@@ -58,8 +58,11 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 # so this layout doesn't need to filter single-bit masks itself — it just maps
 # every meaningful mask to the appropriate atlas slot via the open-side rule.
 func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
-	if mask == 0:
-		return null
+	# mask=0 falls through naturally: the open-side rule produces col=1 (both
+	# W and E open → neither-only) and row=1 (both T and B open → neither-only),
+	# so an isolated cell dispatches to atlas (1, 1) — the center "fully closed"
+	# tile. Greybox at (1, 1) is solid 32x32; this is the appropriate default
+	# for a single-grid cell with no neighbors.
 	# Open sides: bit NOT set means that neighbor is absent.
 	var open_t := (mask & 1) == 0
 	var open_e := (mask & 2) == 0

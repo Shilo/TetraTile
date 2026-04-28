@@ -250,9 +250,6 @@ func _mark_affected_single_grid_cells(affected: Dictionary, logic_cell: Vector2i
 func _paint_via_layout(display_cell: Vector2i, active_layout: PentaTileLayout, source: int, sample_fn: Callable) -> void:
 	_primary_layer.erase_cell(display_cell)
 
-	var mask := active_layout.compute_mask(display_cell, sample_fn)
-	if mask == 0:
-		return                                                                      # universal short-circuit (PITFALLS §4)
 	# SINGLE-GRID LAYOUTS: only render cells that are themselves logic-painted.
 	# _mark_affected_single_grid_cells marks the painted cell PLUS its 4
 	# cardinal neighbors, so unpainted neighbors arrive here too — they need
@@ -263,6 +260,15 @@ func _paint_via_layout(display_cell: Vector2i, active_layout: PentaTileLayout, s
 	# (outer perimeter cells fill INNER quadrants that fall inside the painted
 	# logic region's pixel bounds — net effect is a clean rectangle).
 	if not active_layout.is_dual_grid() and not sample_fn.call(display_cell):
+		return
+
+	var mask := active_layout.compute_mask(display_cell, sample_fn)
+	# DUAL-GRID universal short-circuit (PITFALLS §4): a display cell with no
+	# painted corners doesn't render. Single-grid logic cells with mask=0
+	# (isolated cells with no painted neighbors, 1x1 paints, or 1xN lines in
+	# Wang2Corner where no diagonals exist) MUST still render — the layout's
+	# mask_to_atlas dispatches them to a default atlas slot.
+	if active_layout.is_dual_grid() and mask == 0:
 		return
 
 	var atlas_sample_fn := Callable(self, "_sample_logic_atlas_coords")

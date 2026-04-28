@@ -44,8 +44,10 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 
 
 func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
-	if mask == 0:
-		return null
+	# mask=0 (no painted diagonal neighbors — an isolated cell, OR a 1xN/Nx1
+	# straight line where no diagonals exist): dispatch to atlas (0, 0). A
+	# logic-painted single-grid cell must always render. Greybox at (0, 0) is
+	# solid 32x32. (mask % 4, mask / 4) covers mask=0 → (0, 0) naturally.
 	var slot := PentaTileAtlasSlot.new()
 	slot.atlas_coords = Vector2i(mask % 4, mask / 4)
 	slot.transform_flags = 0
