@@ -96,9 +96,13 @@ try {
             $proc = Start-Process -FilePath $GodotExe -ArgumentList $argsList -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
             $exit = $proc.ExitCode
 
+            # Read with explicit UTF-8 encoding via .NET so em-dashes / unicode
+            # in test output don't get misinterpreted as Windows-1252 by PS 5.1's
+            # Get-Content (which defaults to system codepage). PS 7's Get-Content
+            # defaults to UTF-8, but .NET ReadAllLines is consistent across both.
             $allLines = @()
-            if (Test-Path $stdoutFile) { $allLines += Get-Content $stdoutFile }
-            if (Test-Path $stderrFile) { $allLines += Get-Content $stderrFile }
+            if (Test-Path $stdoutFile) { $allLines += [System.IO.File]::ReadAllLines($stdoutFile, [System.Text.Encoding]::UTF8) }
+            if (Test-Path $stderrFile) { $allLines += [System.IO.File]::ReadAllLines($stderrFile, [System.Text.Encoding]::UTF8) }
 
             if ($VerbosePreference -eq "Continue") {
                 foreach ($line in $allLines) { Write-Host $line }
