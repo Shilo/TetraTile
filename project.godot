@@ -14,7 +14,7 @@ config/name="PentaTile"
 config/description="Just paint your tiles. Intuitive Godot autotiling addon that takes the pain out of tilesets, with no manual terrain setup needed. Supports 5-archetype Penta and popular layouts. Paint with Godot's normal tools and PentaTile fills in the corners, edges, and transitions for you."
 run/main_scene="res://addons/penta_tile/demo/penta_tile_demo.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
-config/icon="res://addons/penta_tile/brand/penta_tile_icon.png"
+config/icon="uid://briuxshmssl3y"
 
 [input]
 
