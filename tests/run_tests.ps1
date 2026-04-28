@@ -177,13 +177,7 @@ catch {
 finally {
     if (-not $NoPause) {
         Write-Host ""
-        Write-Host "Press any key to close..." -ForegroundColor DarkGray
-        try {
-            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        } catch {
-            # Some hosts (ISE, non-interactive) don't support ReadKey.
-            Read-Host "Press Enter" | Out-Null
-        }
+        Read-Host "Press Enter to close" | Out-Null
     }
 }
 
