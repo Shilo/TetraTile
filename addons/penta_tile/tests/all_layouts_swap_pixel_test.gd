@@ -159,6 +159,49 @@ func _verify_layer(layer: Node, label: String) -> void:
 	if primary.position != expected_pos:
 		_record(label, "visual layer position %s != expected %s for is_dual_grid=%s" % [primary.position, expected_pos, str(is_dual_grid)])
 
+	# Background-cell coverage assertion. Cells rendered OUTSIDE the user-painted
+	# logic region (visual extensions of the painted region) must have ≤50%
+	# pixel coverage in their dispatched atlas tile — i.e., they must be
+	# half-tile silhouettes (bottom-half / right-half / etc.) that smoothly
+	# extend the painted region by 16px, matching dual-grid's half-tile offset.
+	#
+	# A FULLY OPAQUE 32x32 tile rendered outside the painted bounds means the
+	# layout is dispatching background extension cells to in-region edge tiles
+	# (the Min3x3 lossy-9-tile artifact: a 12x8 painted region renders 14x10
+	# visual cells, with corner cuts trapped one cell INSIDE the extended
+	# region). Min3x3 fixes this by returning null from mask_to_atlas for
+	# single-bit masks; this test enforces that no future regression silently
+	# adds the extension back.
+	#
+	# Skipped for dual-grid layouts because their half-tile-offset architecture
+	# has a different cell-counting convention.
+	if not is_dual_grid and atlas_img != null:
+		var min_painted := Vector2i(-1, -1)
+		var max_painted := Vector2i(10, 6)
+		var ext_overcoverage := 0
+		var first_ext_fail: Variant = null
+		for cell: Vector2i in painted:
+			if cell.x >= min_painted.x and cell.x <= max_painted.x and cell.y >= min_painted.y and cell.y <= max_painted.y:
+				continue                                                                # in-region, not an extension
+			var ac3: Vector2i = primary.get_cell_atlas_coords(cell)
+			if not eff_src.has_tile(ac3):
+				continue
+			var ax: int = ac3.x * tile_size.x
+			var ay: int = ac3.y * tile_size.y
+			var op := 0
+			var total: int = tile_size.x * tile_size.y
+			for py in range(tile_size.y):
+				for px in range(tile_size.x):
+					if atlas_img.get_pixel(ax + px, ay + py).a > 0.01:
+						op += 1
+			var pct: float = 100.0 * float(op) / float(max(1, total))
+			if pct > 50.0:
+				ext_overcoverage += 1
+				if first_ext_fail == null:
+					first_ext_fail = "cell %s (extension) atlas %s coverage %.0f%% > 50%% — likely a single-bit-mask collapse" % [cell, ac3, pct]
+		if ext_overcoverage > 0:
+			_record(label, "%d extension cells render with >50%% atlas coverage — painted region extends by a full cell instead of half (first: %s)" % [ext_overcoverage, first_ext_fail])
+
 	# Per-cell verification.
 	var unrenderable_atlas := 0
 	var transparent_atlas := 0
