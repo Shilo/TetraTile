@@ -79,8 +79,22 @@ def draw_edge_mask(draw: ImageDraw.ImageDraw, col: int, row: int, mask: int) -> 
     """Plus-sign silhouette per an edge mask: center hint + arms.
 
     Bits: N=1, E=2, S=4, W=8.
+
+    Special case mask=15 (all 4 neighbors present = fully surrounded interior
+    cell): draw a SOLID 32x32 instead of a plus-with-hollow-corners. The plus
+    pattern leaves the 4 corner regions transparent; when adjacent interior
+    cells tile, those corners stack into visible dark squares between cells
+    that break the illusion of a continuous painted region (user reported
+    visual artifact). Solid fill makes interior cells render coherently.
+
+    Boundary masks (1, 2, 4, 8 and their pairs) keep the plus pattern —
+    they're meant to show edge connections, and their hollow corners
+    correctly indicate "no neighbor on those sides."
     """
     x0, y0 = col * TILE, row * TILE
+    if mask == 15:
+        draw.rectangle((x0, y0, x0 + TILE - 1, y0 + TILE - 1), fill=GREY)
+        return
     # Scale the center hint and arms relative to TILE=32
     # Phase 1 used 16px tile with center at 6..9; for 32px we scale by 2: center at 12..19
     cx0, cy0 = x0 + 12, y0 + 12
