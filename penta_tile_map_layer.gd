@@ -29,17 +29,49 @@ const _PentaTileSynthesis = preload("res://addons/penta_tile/penta_tile_synthesi
 		_abstract_base_warning_emitted = false                                     # re-arm one-shot warning on rebind
 		if layout != null:
 			layout.changed.connect(_on_layout_changed)
-			# Auto-fill tile_set from the layout's fallback when no tile_set is bound
+			# Auto-fill tile_set from the layout's fallback when (a) no tile_set is
+			# bound, OR (b) the current tile_set is itself a previously-auto-filled
+			# fallback (so swapping layouts swaps fallbacks too without leaving the
+			# user with a tile_set that doesn't match the new layout's grid shape).
+			# User-supplied tile_sets — anything assigned manually via the inspector
+			# or scripts — flip _tile_set_is_fallback to false via the _set hook
+			# below and are never overwritten.
 			# (PREVIEW-03 / PREVIEW-04 pulled forward from Phase 4 — without this the
 			# Godot TileMap pane refuses to engage and users can't draw with just a
-			# layout assigned). Only fires when tile_set is null; user-supplied
-			# tile_sets are never overwritten.
-			if tile_set == null:
+			# layout assigned.)
+			if tile_set == null or _tile_set_is_fallback:
 				var fallback := layout.get_fallback_tile_set()
 				if fallback != null:
+					_suppress_tile_set_override = true
 					tile_set = fallback
+					_suppress_tile_set_override = false
+					_tile_set_is_fallback = true
 		_queue_rebuild()
 		update_configuration_warnings()                                            # H-3 trigger
+
+
+# Tracks whether the current `tile_set` was auto-filled from the layout's
+# fallback (true) or assigned manually by the user (false). Persisted in the
+# scene/.tres so the relationship survives reload. Flipped to false by the
+# `_set` hook on any non-suppressed write to `tile_set`.
+@export_storage var _tile_set_is_fallback: bool = false
+
+
+# Transient flag that suppresses the user-override detection during the layout
+# setter's internal auto-fill write. Same pattern PentaTileLayoutPenta uses for
+# bitmask_template (_suppress_preset_override).
+var _suppress_tile_set_override: bool = false
+
+
+# Intercept inspector / scripted writes to `tile_set` so we can tell auto-fills
+# (suppressed) apart from user assignments (flips the flag, locks fallback
+# auto-replacement off). Returning false lets Godot apply the default property
+# behavior after our hook records the override.
+func _set(property: StringName, value: Variant) -> bool:
+	if property == "tile_set" and not _suppress_tile_set_override:
+		if value != tile_set:
+			_tile_set_is_fallback = false
+	return false
 
 @export_range(0.0, 1.0, 0.01) var logic_layer_opacity: float = 0.0:
 	set(value):
