@@ -1,8 +1,32 @@
-"""Regenerate addons/penta_tile/demo/penta_tile_ground.png to match Phase 2's
-new Penta slot ordering: 0=IsolatedCell, 1=Fill, 2=Border, 3=InnerCorner.
+"""Regenerate addons/penta_tile/demo/penta_tile_ground.png as a FIVE-mode
+Penta atlas (5 hand-authored archetype tiles, no synthesis required).
 
-Keeps the demo's distinctive teal-rock + orange-wire aesthetic. Each tile is 16x16.
-Output strip is 64x16 (4 tiles horizontal).
+Phase 2 slot ordering (locked):
+  0 = IsolatedCell    — single BL-quadrant outer-corner art (transparent
+                        elsewhere) so OuterCorner-via-rotation reads as a
+                        single corner, not a full silhouette
+  1 = Fill            — solid stippled stone
+  2 = Border          — bottom-half slab (canonical ROTATE_0 = mask 12)
+  3 = InnerCorner     — L-shape minus TR quadrant (canonical ROTATE_0 = mask 13)
+  4 = OppositeCorners — TL + BR quadrants stippled (canonical ROTATE_0 = mask 9
+                        "\\" diagonal)
+
+Why FIVE-mode for the demo (not FOUR with synthesis): in FOUR mode the
+synthesizer reads slot 0's TL+BR quadrants for OppositeCorners (slot 4) and
+its center 50% / bottom half / L-shape regions for Fill / Border /
+InnerCorner. That requires slot 0 to be a full silhouette covering all those
+regions. But OuterCorner-via-rotation also reads slot 0 verbatim with
+rotation, so a full silhouette renders as 4 overlapping silhouettes around a
+painted cell — the documented Gate 1 visual tradeoff.
+
+Going FIVE-mode lets slot 0 be a clean single-quadrant outer-corner piece
+(rotates correctly into 4 corners of a coherent silhouette) AND each of the
+other 4 archetypes is hand-authored — no synthesis, no tradeoff. The user's
+locked design (session a69c3ba5) keeps load-time synthesis for ONE/TWO/THREE
+mode; FOUR is also synthesis-capable; FIVE is pure-authored for users who
+want pixel-perfect output. The demo opts into FIVE for clean visuals.
+
+Each tile is 16x16. Output strip is 80x16 (5 tiles horizontal).
 
 Run:
   python addons/penta_tile/demo/_regen_demo_ground.py
@@ -12,7 +36,7 @@ from PIL import Image, ImageDraw
 from pathlib import Path
 
 TILE = 16
-COLS = 4
+COLS = 5
 ROWS = 1
 
 # Demo aesthetic palette (eyeballed from the user's screenshot — dark teal stone
@@ -58,68 +82,32 @@ def _orange_border(draw: ImageDraw.ImageDraw, x0: int, y0: int, x1: int, y1: int
 
 
 def draw_isolated_cell(img: Image.Image, col: int) -> None:
-    """Slot 0 — IsolatedCell. Full-silhouette authoring with the BL quadrant
-    drawn at full opacity and the other 3 quadrants composited at reduced
-    alpha (Gate 1 documented escape hatch — see 02-02-PLAN.md:134). This is
-    the "appropriately faded extras" path the spec explicitly calls out.
+    """Slot 0 — IsolatedCell. ONLY the BL quadrant is filled; the other 3
+    quadrants are fully transparent. Under the OuterCorner-via-rotation
+    dispatch (masks 1/2/4/8 → slot 0 + ROTATE_0/90/180/270), the BL quadrant
+    rotates to land at the correct corner of each of the 4 display cells
+    around a painted logic cell — and the 4 corner pieces meet at the painted
+    cell's center to form ONE coherent outer-corner silhouette.
 
-    Why full silhouette + faded extras (NOT BL-only):
-    - Synthesis at load time (Image.blit_rect) reads slot 0's regions to
-      generate the OTHER 4 archetypes when ONE/TWO/THREE/FOUR mode leaves
-      them unauthored. Recipes:
-        slot 1 Fill              ← center 50% of slot 0
-        slot 2 Border            ← bottom half of slot 0
-        slot 3 InnerCorner       ← full slot 0 minus TR quadrant
-        slot 4 OppositeCorners   ← TL quadrant + BR quadrant composited
-      Making TL/TR/BR fully transparent breaks slot 4 (OppositeCorners
-      renders empty for masks 6 and 9). The user's locked design (session
-      a69c3ba5) explicitly chose load-time OppositeCorners synthesis over
-      a runtime overlay layer — this asset must support that.
-
-    - For the OuterCorner-via-rotation visual (masks 1/2/4/8 → slot 0 +
-      ROTATE_*), the BL quadrant's higher opacity dominates the rendered
-      pixels so each rotated copy reads as "one strong corner + ghost rest."
-      4 display cells around a painted logic cell each show a strong corner
-      at the cell's inner-toward-painted side; the ghost regions are still
-      visible but don't overpower the silhouette like full-opacity-everywhere
-      does.
-
-    BL-quadrant anchor derivation (16x16 tile, BL = pixels x:0-7, y:8-15):
+    BL quadrant = pixels x:0-7, y:8-15.
       ROTATE_0   (mask 4): BL stays at BL of cell south of painted cell.
       ROTATE_90  (mask 1): BL → TL of cell SE of painted cell.
       ROTATE_180 (mask 2): BL → TR of cell SW of painted cell.
       ROTATE_270 (mask 8): BL → BR of cell NW of painted cell.
-    The 4 strong-opacity corners meet at the painted cell's center.
 
-    The bundled greybox PNGs (addons/penta_tile/_generate_bitmasks.py) keep
-    the uniform-opacity full silhouette as the documentation reference; this
-    fade is demo-specific art polish."""
+    Single-quadrant slot 0 is only safe in FIVE mode where the OTHER 4
+    archetypes (Fill/Border/InnerCorner/OppositeCorners) are authored
+    explicitly. In ONE/TWO/THREE/FOUR mode the synthesizer would read slot 0's
+    transparent quadrants for those archetypes and produce empty art."""
     draw = ImageDraw.Draw(img)
     x0, y0 = col * TILE, 0
-    x1, y1 = x0 + TILE, y0 + TILE
     mid_x, mid_y = x0 + TILE // 2, y0 + TILE // 2
-
-    # Step 1: stippled-fill the entire tile + TBLR wires at full opacity.
-    _stippled_fill(draw, x0, y0, x1, y1)
-    _orange_border(draw, x0, y0, x1, y1, "TBLR")
-
-    # Step 2: knock down the alpha of TL/TR/BR quadrants — fade-not-erase so
-    # synthesis recipes still extract real (dimmer) art for slots 1/2/3/4.
-    # 60% alpha leaves the BL quadrant clearly dominant under rotation while
-    # keeping enough signal in TL+BR for OppositeCorners synthesis to render
-    # visibly (~36% effective opacity composited).
-    FADE_ALPHA = 102                                                                  # ~40% (out of 255) — strong fade
-    pixels = img.load()
-    for py in range(y0, y1):
-        for px in range(x0, x1):
-            in_bl = (px < mid_x) and (py >= mid_y)
-            if in_bl:
-                continue
-            r, g, b, a = pixels[px, py]
-            if a == 0:
-                continue
-            new_a = max(0, a - FADE_ALPHA)
-            pixels[px, py] = (r, g, b, new_a)
+    bl_x1, bl_y1 = mid_x, y0 + TILE
+    # BL quadrant only — TL/TR/BR stay transparent.
+    _stippled_fill(draw, x0, mid_y, bl_x1, bl_y1)
+    # Orange wires on the L and B sides of the BL quadrant — these become the
+    # outer perimeter of the composed silhouette under rotation+tiling.
+    _orange_border(draw, x0, mid_y, bl_x1, bl_y1, "LB")
 
 
 def draw_fill(img: Image.Image, col: int) -> None:
@@ -164,6 +152,24 @@ def draw_inner_corner(img: Image.Image, col: int) -> None:
         draw.point((mid_x, y), fill=ORANGE)
 
 
+def draw_opposite_corners(img: Image.Image, col: int) -> None:
+    """Slot 4 — OppositeCorners. Canonical orientation = ROTATE_0 = mask 9
+    (TL+BR, "\\" diagonal — per penta_tile_layout_penta.gd anchoring note:
+    PentaTile picks mask 9 = _ROTATE_0 for the diagonal anchor). TL and BR
+    quadrants are filled; TR and BL stay transparent."""
+    draw = ImageDraw.Draw(img)
+    x0, y0 = col * TILE, 0
+    x1, y1 = x0 + TILE, y0 + TILE
+    mid_x, mid_y = x0 + TILE // 2, y0 + TILE // 2
+    # TL quadrant
+    _stippled_fill(draw, x0, y0, mid_x, mid_y)
+    # BR quadrant
+    _stippled_fill(draw, mid_x, mid_y, x1, y1)
+    # Orange wires on the outer edges of each filled quadrant
+    _orange_border(draw, x0, y0, mid_x, mid_y, "TL")
+    _orange_border(draw, mid_x, mid_y, x1, y1, "BR")
+
+
 def main() -> None:
     out_path = Path(__file__).parent / "penta_tile_ground.png"
     img = Image.new("RGBA", (COLS * TILE, ROWS * TILE), TRANSPARENT)
@@ -172,6 +178,7 @@ def main() -> None:
     draw_fill(img, 1)
     draw_border(img, 2)
     draw_inner_corner(img, 3)
+    draw_opposite_corners(img, 4)
 
     img.save(out_path)
     print(f"wrote {out_path} ({img.size[0]}x{img.size[1]})")

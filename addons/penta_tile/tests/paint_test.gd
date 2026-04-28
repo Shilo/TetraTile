@@ -401,21 +401,28 @@ func _test_abstract_base_guard() -> void:
 
 
 func _setup_layer() -> void:
-	# Build a PentaTileMapLayer programmatically; bind the demo TileSet (loaded from .tscn
-	# subresource indirectly via packed scene + extract) is fragile, so we construct an
-	# equivalent TileSet inline: 1 source × 4 horizontal tiles.
-	var tex := load("res://addons/penta_tile/demo/penta_tile_ground.png") as Texture2D
+	# Build a PentaTileMapLayer programmatically. Uses the BUNDLED FOUR-mode
+	# greybox PNG (full-silhouette slot 0) as the source so FOUR-mode synthesis
+	# can produce visible art for ALL 5 output slots — including slot 4
+	# OppositeCorners which reads slot 0's TL+BR quadrants. The DEMO PNG
+	# (penta_tile_ground.png) is now FIVE-mode authored with a single-quadrant
+	# slot 0 specifically optimized for clean OuterCorner-via-rotation; it
+	# would render slot 4 transparent under FOUR-mode synthesis. Demo and
+	# unit-test sources are deliberately different for that reason.
+	var tex := load("res://addons/penta_tile/layouts/penta_tile_layout_penta/four_horizontal.png") as Texture2D
 	if tex == null:
-		_fail("setup", "could not load penta_tile_ground.png")
+		_fail("setup", "could not load bundled four_horizontal.png greybox")
 		return
 
 	var src := TileSetAtlasSource.new()
 	src.texture = tex
-	src.texture_region_size = Vector2i(16, 16)
+	# four_horizontal.png is 4 tiles × 32px each = 128×32. tile_size=32×32.
+	var tile_size := Vector2i(tex.get_width() / 4, tex.get_height())
+	src.texture_region_size = tile_size
 	for slot in range(4):
 		src.create_tile(Vector2i(slot, 0))
 	var ts := TileSet.new()
-	ts.tile_size = Vector2i(16, 16)
+	ts.tile_size = tile_size
 	ts.add_source(src, 0)
 
 	_layout = _PentaScript.new()
