@@ -92,10 +92,35 @@ def draw_edge_mask(draw: ImageDraw.ImageDraw, col: int, row: int, mask: int) -> 
 
 # ---- Penta archetype drawers (NEW in Phase 2; pixel coords spelled out above) ----
 
-def draw_penta_isolated_cell(draw, col, row):
-    """Slot 0 -- IsolatedCell silhouette: 4 corners + 4 edges + center fill."""
+def draw_penta_isolated_cell(draw, col, row, bl_only=False):
+    """Slot 0 -- IsolatedCell silhouette.
+
+    Two shapes depending on `bl_only`:
+
+    `bl_only = False` (default, used by ONE/TWO/THREE/FOUR mode greyboxes):
+      Full silhouette = 4 corners + 4 edges + center fill packed into one tile.
+      Synthesis recipes for ONE/TWO/THREE/FOUR mode read slot 0's regions to
+      generate Fill (center 50%), Border (bottom half), InnerCorner (full
+      minus TR), OppositeCorners (TL+BR composite). The full silhouette
+      makes those recipes produce real art. Tradeoff (Gate 1): under
+      OuterCorner-via-rotation (masks 1/2/4/8), each rotated copy renders
+      the full silhouette so 4 surrounding cells around a painted block
+      show 4 mini silhouettes instead of 4 corner pieces. Documented; the
+      synthesis-driven modes accept this.
+
+    `bl_only = True` (used by FIVE mode greybox only):
+      Just the BL quadrant filled — single outer-corner piece. FIVE mode
+      doesn't use synthesis (slots 1-4 are hand-authored), so slot 0 is
+      free to be optimized for the OuterCorner-via-rotation visual: each
+      of the 4 rotations places the BL quadrant at a different corner of
+      the rendered cell, and 4 such cells around a painted block compose
+      into a clean outer-corner-only silhouette without overlap noise."""
     ox, oy = col * TILE, row * TILE
-    # Center 16x16 fill
+    if bl_only:
+        # BL quadrant only — pixels x:0-15, y:16-31 in 32x32 tile coords.
+        draw.rectangle((ox, oy + 16, ox + 16, oy + TILE), fill=GREY)
+        return
+    # Full silhouette
     draw.rectangle((ox + 8, oy + 8, ox + 24, oy + 24), fill=GREY)
     # 4 edge slabs (between corner caps)
     draw.rectangle((ox + 10, oy + 0,  ox + 22, oy + 4),  fill=GREY)   # top
@@ -154,9 +179,19 @@ def gen_penta(mode: int, axis: str) -> Image.Image:
         draw_penta_inner_corner,     # slot 3
         draw_penta_opposite_corners, # slot 4
     ]
+    # FIVE mode is pure-authored (no synthesis). Slot 0 can be a clean
+    # BL-quadrant outer-corner piece that rotates into 4 corners forming a
+    # coherent silhouette around a painted block. ONE/TWO/THREE/FOUR mode
+    # use synthesis recipes off slot 0 (Fill from center 50%, Border from
+    # bottom half, InnerCorner from L-shape, OppositeCorners from TL+BR);
+    # those recipes need a full-silhouette slot 0 to produce real art.
+    bl_only = (mode == 5)
     for slot in range(mode):
         col, row = (slot, 0) if axis == "horizontal" else (0, slot)
-        archetype_drawers[slot](draw, col, row)
+        if slot == 0:
+            draw_penta_isolated_cell(draw, col, row, bl_only=bl_only)
+        else:
+            archetype_drawers[slot](draw, col, row)
         draw_slot_outline(draw, col, row)
     return img
 
