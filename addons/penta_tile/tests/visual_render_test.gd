@@ -73,14 +73,15 @@ func _initialize() -> void:
 	penta.set("tile_count", 5)
 	await _test_layout("Penta-FIVE-H", penta, true, PENTA_QUADS)
 
-	# DualGrid16 / Wang2Corner — bundled greybox draws bits-set quadrants per mask;
-	# full per-quadrant verification matches the bit decomposition of `mask`.
+	# DualGrid16 — DUAL-GRID corner-mask layout. Bundled greybox draws bits-set
+	# quadrants per mask (TL=1, TR=2, BL=4, BR=8) and the dual-grid composition
+	# combines display cells into a clean rectangle. Full per-quadrant check.
 	await _test_layout("DualGrid16",   _DualGrid16Sc.new(),  true, _build_corner_mask_quads())
-	await _test_layout("Wang2Corner",  _Wang2CornerSc.new(), true, _build_corner_mask_quads())
 
-	# Wang2Edge / Min3x3 — plus-sign edge tiles, no clean per-quadrant model.
-	# Sanity-only: rendered tile must have non-zero opacity (mask 0 = null/erase
-	# is fine; any rendered cell must have visible pixels).
+	# Wang2Corner / Wang2Edge / Min3x3 — SINGLE-GRID layouts. Each painted logic
+	# cell renders one fully-solid 32x32 tile (the mask just selects WHICH of
+	# the 16 / 9 tiles, not what shape it is). Sanity-only opacity check.
+	await _test_layout("Wang2Corner",  _Wang2CornerSc.new(), false, {})
 	await _test_layout("Wang2Edge",    _Wang2EdgeSc.new(),   false, {})
 	await _test_layout("Minimal3x3",   _Min3x3Sc.new(),      false, {})
 

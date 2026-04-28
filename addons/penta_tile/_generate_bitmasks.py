@@ -208,12 +208,31 @@ def gen_wang_2_edge() -> Image.Image:
 
 
 def gen_wang_2_corner() -> Image.Image:
-    """4x4 corner-mask greybox in CR31 cardinal naming (NE/SE/SW/NW).
+    """4x4 atlas greybox for the SINGLE-GRID Wang2Corner layout.
 
-    Visually identical to dual_grid_16 (same silhouettes); per NATIVE-03's
-    "different bit-naming, same silhouettes" wording, output the same image data.
+    Wang2Corner is single-grid: each painted logic cell IS a display cell
+    rendered with one fully-opaque 32x32 tile from this atlas. The corner
+    mask (NE/SE/SW/NW = bits 1/2/4/8) selects WHICH of the 16 tiles the
+    cell uses; the tile silhouette itself is always a solid 32x32 (the
+    artist's per-tile artwork shows the corner transitions internally).
+
+    Earlier revisions reused gen_dual_grid_16's output (partial-quadrant
+    fills via draw_corner_mask). That works for DualGrid16's dual-grid
+    composition (4 display cells per painted logic cell, with quadrants
+    summing to a clean rectangle), but for SINGLE-GRID Wang2Corner each
+    cell renders one tile alone — partial-quadrant fills leave perimeter
+    cells with visible gaps where the unfilled quadrants don't connect
+    to anything (UAT screenshot: alternating-square stripe along the
+    painted region's outer edge).
     """
-    return gen_dual_grid_16()
+    img = new_atlas(4, 4)
+    draw = ImageDraw.Draw(img)
+    for col in range(4):
+        for row in range(4):
+            x0, y0 = col * TILE, row * TILE
+            draw.rectangle((x0, y0, x0 + TILE - 1, y0 + TILE - 1), fill=GREY)
+            draw_slot_outline(draw, col, row)
+    return img
 
 
 def gen_minimal_3x3() -> Image.Image:

@@ -55,7 +55,7 @@ func _initialize() -> void:
 	_check_atlas("Wang2Corner",
 		"res://addons/penta_tile/layouts/penta_tile_layout_wang_2_corner.png",
 		Vector2i(4, 4),
-		_corner_mask_silhouette)
+		_wang_2_corner_silhouette)
 
 	# Penta variants: 5 modes × 2 axes. Each mode has N tiles (slot 0..N-1).
 	var mode_names: Array = ["one", "two", "three", "four", "five"]
@@ -149,6 +149,13 @@ func _wang_2_edge_silhouette(_grid: Vector2i, _sx: int, _sy: int) -> Array:
 
 
 func _min_3x3_silhouette(_grid: Vector2i, _sx: int, _sy: int) -> Array:
+	return [Rect2i(0, 0, _TILE, _TILE)]
+
+
+# Wang2Corner is single-grid (each painted logic cell renders one solid 32x32
+# tile selected by its corner mask). Same expected silhouette as Wang2Edge /
+# Min3x3 — fully solid 32x32 per slot.
+func _wang_2_corner_silhouette(_grid: Vector2i, _sx: int, _sy: int) -> Array:
 	return [Rect2i(0, 0, _TILE, _TILE)]
 
 

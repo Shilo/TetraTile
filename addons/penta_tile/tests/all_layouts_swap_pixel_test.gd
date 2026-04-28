@@ -181,6 +181,40 @@ func _verify_layer(layer: Node, label: String) -> void:
 		if bbox_failures > 0:
 			_record(label, "%d visual cells rendered OUTSIDE the user-painted region — single-grid layouts must only render logic-painted cells (first: %s)" % [bbox_failures, first_bbox_fail])
 
+	# Per-cell SOLIDITY assertion (single-grid layouts only).
+	#
+	# In single-grid layouts every painted logic cell IS a display cell, so its
+	# dispatched tile must be fully opaque (100% coverage) — partial-quadrant
+	# fills leave visible gaps where the unfilled quadrants don't connect to
+	# adjacent cells (UAT screenshot of Wang2Corner: alternating-square stripe
+	# along the painted region's outer edge).
+	#
+	# Dual-grid layouts intentionally use partial-quadrant fills (4 display cells
+	# per painted logic cell, with quadrants summing to a clean rectangle); the
+	# interior coverage check (mask=15 = 100%) covers them.
+	if not is_dual_grid and atlas_img != null:
+		var solidity_fails := 0
+		var first_solidity_fail: Variant = null
+		for cell: Vector2i in painted:
+			var ac4: Vector2i = primary.get_cell_atlas_coords(cell)
+			if not eff_src.has_tile(ac4):
+				continue
+			var ax4: int = ac4.x * tile_size.x
+			var ay4: int = ac4.y * tile_size.y
+			var op := 0
+			var total: int = tile_size.x * tile_size.y
+			for py in range(tile_size.y):
+				for px in range(tile_size.x):
+					if atlas_img.get_pixel(ax4 + px, ay4 + py).a > 0.01:
+						op += 1
+			if op < total:
+				solidity_fails += 1
+				if first_solidity_fail == null:
+					var pct: float = 100.0 * float(op) / float(max(1, total))
+					first_solidity_fail = "cell %s atlas %s coverage %.1f%% (must be 100%%)" % [cell, ac4, pct]
+		if solidity_fails > 0:
+			_record(label, "%d painted cells dispatch to non-solid atlas tiles — single-grid layouts need full-32x32 fills, not partial quadrants (first: %s)" % [solidity_fails, first_solidity_fail])
+
 	# Per-cell verification.
 	var unrenderable_atlas := 0
 	var transparent_atlas := 0
