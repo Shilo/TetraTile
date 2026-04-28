@@ -57,6 +57,7 @@ try {
         "strict_pixel_test",
         "penta_one_mode_test",
         "auto_strip_axis_test",
+        "layout_swap_test",
         "determinism_test"
     )
 

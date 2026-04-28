@@ -40,6 +40,15 @@ const _DEFAULT_LAYOUT_SCRIPT = preload("res://addons/penta_tile/layouts/penta_ti
 			layout.changed.disconnect(_on_layout_changed)
 		layout = value
 		_abstract_base_warning_emitted = false                                     # re-arm one-shot warning on rebind
+		# Nuke the synthesized cache on whole-layout reassignment. Without this,
+		# swapping (e.g. Penta → DualGrid16) leaves the OLD synthesized 5x1
+		# Penta atlas attached to the visual layer (since the Resource.changed
+		# signal only fires on PROPERTY changes inside a layout, not on layout
+		# swap). The new layout's mask_to_atlas dispatches to coords valid for
+		# IT (e.g. DualGrid16 (3,3)) but the visual layer's tile_set is still
+		# the stale Penta synth → coords don't resolve → cells render empty.
+		_synthesized_tile_set = null
+		_synthesis_signature = 0
 		if layout != null:
 			layout.changed.connect(_on_layout_changed)
 			# Auto-fill tile_set from the layout's fallback when (a) no tile_set is
