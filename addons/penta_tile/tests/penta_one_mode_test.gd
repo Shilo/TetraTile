@@ -164,42 +164,16 @@ func _run() -> void:
 
 
 # Expected pixel pattern for the bundled ONE-mode one_horizontal.png slot 0.
-# Mirrors `draw_penta_isolated_cell` (FULL silhouette path) in
-# addons/penta_tile/_generate_bitmasks.py — 32x32 tile with 4 corner caps
-# at 4x4 each + 4 edge slabs at 12x4 / 4x12 + center 16x16 fill.
+# Mirrors `draw_penta_isolated_cell` (BL-quadrant single-corner piece) in
+# addons/penta_tile/_generate_bitmasks.py — 32x32 tile with the BL quadrant
+# (x:0..15, y:16..31) filled, other 3 quadrants transparent.
 # Returns true if pixel (x, y) should be opaque.
 func _expected_one_mode_slot0(x: int, y: int, ts: int) -> bool:
 	if ts != 32:
 		# Spec is encoded for 32-px tiles. Different tile sizes aren't tested here.
 		return false
-	# Center 16x16: x∈[8,23], y∈[8,23]
-	if x >= 8 and x <= 23 and y >= 8 and y <= 23:
-		return true
-	# Top edge slab: x∈[10,21], y∈[0,3]
-	if x >= 10 and x <= 21 and y >= 0 and y <= 3:
-		return true
-	# Bottom edge slab: x∈[10,21], y∈[28,31]
-	if x >= 10 and x <= 21 and y >= 28 and y <= 31:
-		return true
-	# Left edge slab: x∈[0,3], y∈[10,21]
-	if x >= 0 and x <= 3 and y >= 10 and y <= 21:
-		return true
-	# Right edge slab: x∈[28,31], y∈[10,21]
-	if x >= 28 and x <= 31 and y >= 10 and y <= 21:
-		return true
-	# TL cap: x∈[0,3], y∈[0,3]
-	if x >= 0 and x <= 3 and y >= 0 and y <= 3:
-		return true
-	# TR cap: x∈[28,31], y∈[0,3]
-	if x >= 28 and x <= 31 and y >= 0 and y <= 3:
-		return true
-	# BL cap: x∈[0,3], y∈[28,31]
-	if x >= 0 and x <= 3 and y >= 28 and y <= 31:
-		return true
-	# BR cap: x∈[28,31], y∈[28,31]
-	if x >= 28 and x <= 31 and y >= 28 and y <= 31:
-		return true
-	return false
+	# BL quadrant only.
+	return x >= 0 and x <= 15 and y >= 16 and y <= 31
 
 
 func _fail(msg: String) -> void:

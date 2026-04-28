@@ -589,12 +589,32 @@ static func _extract_tile_polygons(
 	return result
 
 
-## Synthesize slot `out_slot` image from slot 0 (IsolatedCell) sub-regions.
-## Gate 1 anchoring spec:
-##   SLOT_FILL (1)           — center 50% of slot 0, stretched to tile_size
-##   SLOT_BORDER (2)         — bottom-half slab (S edge), stretched to tile_size
-##   SLOT_INNER_CORNER (3)   — three-quadrant L-shape (missing TR), stretched to tile_size
-##   SLOT_OPPOSITE_CORNERS (4) — TL_quad + BR_quad composited on transparent canvas
+## Synthesize slot `out_slot` image by composing rotated copies of slot 0's
+## BL-quadrant outer-corner piece into the appropriate output positions.
+##
+## Slot 0 convention (locked across all Penta modes): BL quadrant of slot 0
+## (pixels (0..ts/2-1, ts/2..ts-1)) contains a single outer-corner piece;
+## other 3 quadrants are transparent.
+##
+## Output composition per slot:
+##   SLOT_FILL (1, mask 15)           — 4 BL quadrants placed at output's 4
+##                                      quadrants. For uniform fill art the
+##                                      output is a continuous fill region.
+##   SLOT_BORDER (2, canonical mask 12) — 2 BL quadrants placed at output's
+##                                      BL + BR positions. Top half stays
+##                                      transparent → bottom-edge tile.
+##   SLOT_INNER_CORNER (3, canonical mask 13) — 3 BL quadrants at output's
+##                                      TL + BL + BR. TR transparent.
+##   SLOT_OPPOSITE_CORNERS (4, canonical mask 9) — 2 BL quadrants at output's
+##                                      TL + BR (diagonal). TR + BL transparent.
+##
+## Earlier revisions stretched sub-rectangles of a full-silhouette slot 0
+## (Fill = center 50% stretched, Border = bottom half stretched, etc.). That
+## approach produced visibly broken output when the slot 0 source contained
+## complex silhouette content — corner caps + edges + fill all mixed in a
+## sub-region became distorted under stretch. The compose-from-quadrants
+## approach is consistent (every synthesized slot built from the same source
+## shape, just placed differently) and produces clean multi-cell rendering.
 static func _synthesize_slot_image(
 		atlas_image: Image,
 		slot0_coords: Vector2i,
@@ -605,78 +625,44 @@ static func _synthesize_slot_image(
 		blank.fill(Color(0.0, 0.0, 0.0, 0.0))
 		return blank
 
-	# Pixel origin of slot 0 in the atlas image.
-	var slot0_px := Vector2i(slot0_coords.x * tile_size.x, slot0_coords.y * tile_size.y)
-	var ts := tile_size  # shorthand
+	var ts := tile_size                                                                # shorthand
+	var half := Vector2i(ts.x / 2, ts.y / 2)
+
+	# Extract slot 0's BL quadrant once — shared by all archetypes.
+	var slot0_px := Vector2i(slot0_coords.x * ts.x, slot0_coords.y * ts.y)
+	var bl_region := Rect2i(slot0_px.x, slot0_px.y + half.y, half.x, half.y)
+	var bl_quad := atlas_image.get_region(bl_region)
+
+	# Output canvas — transparent base for every archetype's composition.
+	var canvas := Image.create(ts.x, ts.y, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var src_full := Rect2i(Vector2i.ZERO, half)
 
 	match out_slot:
 		SLOT_FILL:
-			# Center 50% rect of slot 0, stretched to tile_size.
-			# Rect: x = ts/4 .. 3*ts/4, y = ts/4 .. 3*ts/4
-			var sub_x := slot0_px.x + ts.x / 4
-			var sub_y := slot0_px.y + ts.y / 4
-			var sub_w := ts.x / 2
-			var sub_h := ts.y / 2
-			var sub_region := Rect2i(sub_x, sub_y, sub_w, sub_h)
-			var sub_img := atlas_image.get_region(sub_region)
-			sub_img.resize(ts.x, ts.y, Image.INTERPOLATE_NEAREST)
-			return sub_img
-
+			# 4 quadrants — solid fill when slot 0 BL is solid.
+			canvas.blit_rect(bl_quad, src_full, Vector2i(0, 0))                        # TL
+			canvas.blit_rect(bl_quad, src_full, Vector2i(half.x, 0))                   # TR
+			canvas.blit_rect(bl_quad, src_full, Vector2i(0, half.y))                   # BL
+			canvas.blit_rect(bl_quad, src_full, Vector2i(half.x, half.y))              # BR
 		SLOT_BORDER:
-			# Bottom-half slab ("S" edge): rect (0, ts/2) to (ts, ts), stretched to tile_size.
-			var sub_x := slot0_px.x
-			var sub_y := slot0_px.y + ts.y / 2
-			var sub_w := ts.x
-			var sub_h := ts.y / 2
-			var sub_region := Rect2i(sub_x, sub_y, sub_w, sub_h)
-			var sub_img := atlas_image.get_region(sub_region)
-			sub_img.resize(ts.x, ts.y, Image.INTERPOLATE_NEAREST)
-			return sub_img
-
+			# Canonical mask 12 = BL + BR painted = bottom edge facing up.
+			# Bottom half filled, top half transparent.
+			canvas.blit_rect(bl_quad, src_full, Vector2i(0, half.y))                   # BL
+			canvas.blit_rect(bl_quad, src_full, Vector2i(half.x, half.y))              # BR
 		SLOT_INNER_CORNER:
-			# Three-quadrant L-shape: full slot 0 minus the TR quadrant.
-			# Strategy: start with full slot 0 image; blank out TR quadrant (top-right).
-			# TR quadrant: x = ts/2..ts, y = 0..ts/2.
-			# WR-05 FIX: use Image.fill_rect for the TR-quadrant blank instead of a
-			# (half_x × half_y) tight set_pixel loop. fill_rect is one engine call vs
-			# 256+ per synthesis under AUTO mode (32×32 tile = 256 pixels; 64×64 = 1024)
-			# and reads more clearly. Image.get_region already returns a fresh Image in
-			# Godot 4.x (NOT a view of atlas_image), so the in-place blank does not
-			# mutate the source atlas.
-			var full_region := Rect2i(slot0_px.x, slot0_px.y, ts.x, ts.y)
-			var full_img := atlas_image.get_region(full_region)
-			full_img.fill_rect(
-				Rect2i(ts.x / 2, 0, ts.x / 2, ts.y / 2),
-				Color(0.0, 0.0, 0.0, 0.0)
-			)
-			# The resulting L-shape covers BL + TL + BR quadrants. Already at tile_size — no resize.
-			return full_img
-
+			# Canonical mask 13 = TL + BL + BR painted = inner corner pointing TR.
+			# 3 quadrants filled, TR transparent.
+			canvas.blit_rect(bl_quad, src_full, Vector2i(0, 0))                        # TL
+			canvas.blit_rect(bl_quad, src_full, Vector2i(0, half.y))                   # BL
+			canvas.blit_rect(bl_quad, src_full, Vector2i(half.x, half.y))              # BR
 		SLOT_OPPOSITE_CORNERS:
-			# TL_quad composited at TL position, BR_quad composited at BR position.
-			# Canvas: tile_size × tile_size, transparent.
-			var canvas := Image.create(ts.x, ts.y, false, Image.FORMAT_RGBA8)
-			canvas.fill(Color(0.0, 0.0, 0.0, 0.0))
-			var half_x := ts.x / 2
-			var half_y := ts.y / 2
-
-			# TL quad: slot0_px + (0, 0), size = half_x × half_y
-			var tl_region := Rect2i(slot0_px.x, slot0_px.y, half_x, half_y)
-			var tl_img := atlas_image.get_region(tl_region)
-			canvas.blit_rect(tl_img, Rect2i(Vector2i.ZERO, Vector2i(half_x, half_y)), Vector2i(0, 0))
-
-			# BR quad: slot0_px + (half_x, half_y), size = half_x × half_y
-			var br_region := Rect2i(slot0_px.x + half_x, slot0_px.y + half_y, half_x, half_y)
-			var br_img := atlas_image.get_region(br_region)
-			canvas.blit_rect(br_img, Rect2i(Vector2i.ZERO, Vector2i(half_x, half_y)), Vector2i(half_x, half_y))
-
-			return canvas
-
+			# Canonical mask 9 = TL + BR painted = "\\" diagonal.
+			canvas.blit_rect(bl_quad, src_full, Vector2i(0, 0))                        # TL
+			canvas.blit_rect(bl_quad, src_full, Vector2i(half.x, half.y))              # BR
 		_:
-			# Unknown slot — return blank.
-			var blank := Image.create(ts.x, ts.y, false, Image.FORMAT_RGBA8)
-			blank.fill(Color(0.0, 0.0, 0.0, 0.0))
-			return blank
+			pass                                                                        # unknown slot → transparent canvas
+	return canvas
 
 
 ## Synthesize polygon data for a synthesized slot from slot 0 source polygons.
