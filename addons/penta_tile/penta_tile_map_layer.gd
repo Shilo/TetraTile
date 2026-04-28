@@ -122,6 +122,29 @@ var _synthesized_tile_set: TileSet = null
 var _synthesis_signature: int = 0
 
 
+func _init() -> void:
+	# Godot 4 doesn't fire property setters for @export default values, so the
+	# `layout` setter's signal-connect + tile_set auto-fill chain never runs
+	# for the default PentaTileLayoutPenta. Mirror that work here so a fresh
+	# PentaTileMapLayer node has a working autotile setup out of the box —
+	# layout signal connected, tile_set auto-filled from the layout's fallback.
+	#
+	# For .tscn-loaded nodes with a saved `layout`, the property loader fires
+	# the setter on the saved value (different reference than the default), and
+	# the setter handles signal connect + auto-fill (which replaces this _init
+	# work since _tile_set_is_fallback is true). End state matches.
+	if layout != null:
+		if not layout.changed.is_connected(_on_layout_changed):
+			layout.changed.connect(_on_layout_changed)
+		if tile_set == null:
+			var fallback := layout.get_fallback_tile_set()
+			if fallback != null:
+				_suppress_tile_set_override = true
+				tile_set = fallback
+				_suppress_tile_set_override = false
+				_tile_set_is_fallback = true
+
+
 func _ready() -> void:
 	_ensure_visual_layers()
 	_apply_logic_layer_opacity()
