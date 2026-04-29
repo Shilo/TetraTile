@@ -322,16 +322,26 @@ PIXELLAB_ROLE_TO_MASK = [4, 10, 13, 12, 9, 14, 15, 7, 2, 3, 11, 5, 0, 8, 6, 1]
 
 
 def draw_pixel_lab_cell(draw: ImageDraw.ImageDraw, col: int, row: int, role: int) -> None:
-    """Per-role corner-mask silhouette for PixelLab atlases (D-101 option A).
+    """Solid 32x32 silhouette for PixelLab atlases (D-101 option B fallback).
 
-    Cells with the same role get the same silhouette so first-cell pick is
-    visually consistent. Reuses draw_corner_mask (TL=1, TR=2, BL=4, BR=8
-    corner-quadrant convention). Mask 0 (role 12) renders fully transparent;
-    mask 15 (role 6) renders as a solid 32x32; intermediate masks fill the
-    matching corner quadrants.
+    Phase 3.5 Plan 04 found that option A (role-coded corner-mask silhouettes)
+    failed `comprehensive_bitmask_test`'s single-grid solidity assertion: an
+    isolated painted cell renders one 32x32 tile from the atlas, and partial-
+    quadrant fills produced 25-75% pixel coverage instead of the required
+    100%. Same UAT lesson Wang2Corner learned in Phase 2 (gen_wang_2_corner
+    line 234 docstring). Single-grid layouts encode the mask via atlas
+    POSITION, not via per-tile silhouette composition.
+
+    PIXLAB layouts are single-grid (D-96), so the mask differentiator is
+    "which atlas cell did first-cell pick select" — not the silhouette
+    pixels. Solid 32x32 gives clean rendering across all 16 mask states,
+    matching the Wang2Corner / Blob47Godot convention.
+
+    `role` is unused but kept for callsite symmetry with other Phase 3.5
+    helper signatures.
     """
-    mask = PIXELLAB_ROLE_TO_MASK[role]
-    draw_corner_mask(draw, col, row, mask)
+    x0, y0 = col * TILE, row * TILE
+    draw.rectangle((x0, y0, x0 + TILE - 1, y0 + TILE - 1), fill=GREY)
 
 
 def gen_pixel_lab_top_down() -> Image.Image:

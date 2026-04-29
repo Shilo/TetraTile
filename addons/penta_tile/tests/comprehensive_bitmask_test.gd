@@ -38,6 +38,8 @@ const _Wang2EdgeSc     = preload("res://addons/penta_tile/layouts/penta_tile_lay
 const _Wang2CornerSc   = preload("res://addons/penta_tile/layouts/penta_tile_layout_wang_2_corner.gd")
 const _Min3x3Sc        = preload("res://addons/penta_tile/layouts/penta_tile_layout_minimal_3x3.gd")
 const _Blob47GodotSc   = preload("res://addons/penta_tile/layouts/penta_tile_layout_blob_47_godot.gd")
+const _PixelLabTopDownSc      = preload("res://addons/penta_tile/layouts/penta_tile_layout_pixel_lab_top_down.gd")
+const _PixelLabSideScrollerSc = preload("res://addons/penta_tile/layouts/penta_tile_layout_pixel_lab_side_scroller.gd")
 
 var _failures: Array = []
 
@@ -84,6 +86,8 @@ func _initialize() -> void:
 		{"name": "Wang2Corner", "script": _Wang2CornerSc,   "is_dual_grid": false},
 		{"name": "Min3x3",      "script": _Min3x3Sc,        "is_dual_grid": false},
 		{"name": "Blob47Godot", "script": _Blob47GodotSc,   "is_dual_grid": false},
+		{"name": "PixelLabTopDown",      "script": _PixelLabTopDownSc,      "is_dual_grid": false},
+		{"name": "PixelLabSideScroller", "script": _PixelLabSideScrollerSc, "is_dual_grid": false},
 	]
 
 	for layout: Dictionary in layouts:

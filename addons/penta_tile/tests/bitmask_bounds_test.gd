@@ -84,6 +84,23 @@ func _initialize() -> void:
 		_solid_silhouette,
 		blob_47_godot_gaps)
 
+	# PixelLab Top-Down + Side-Scroller (Phase 3.5 Plan 04) — 8×8 atlas with
+	# solid 32×32 silhouettes per slot (D-101 option B fallback — switched
+	# from option A after comprehensive_bitmask_test exposed the single-grid
+	# solidity violation: partial-quadrant silhouettes left isolated cells
+	# rendering at 25-75% coverage instead of 100%). Same convention as
+	# Wang2Corner + Blob47Godot — single-grid layouts encode mask via atlas
+	# POSITION (which cell first-cell-pick selected), not silhouette shape.
+	_check_atlas("PixelLabTopDown",
+		"res://addons/penta_tile/layouts/penta_tile_layout_pixel_lab_top_down.png",
+		Vector2i(8, 8),
+		_solid_silhouette)
+
+	_check_atlas("PixelLabSideScroller",
+		"res://addons/penta_tile/layouts/penta_tile_layout_pixel_lab_side_scroller.png",
+		Vector2i(8, 8),
+		_solid_silhouette)
+
 	print("\n=== summary ===")
 	if _failures.is_empty():
 		print("ALL PASS")
