@@ -188,10 +188,10 @@ Plans:
 
 **Out of scope (deferred to Phase 5 or v0.3+)**: LOC + identity formal audit (Phase 5), README "Layouts"/"Upgrading"/"Authoring a Custom Layout" sections (Phase 5 / DOC-01..03), CHANGELOG v0.2.0 entry (Phase 5 / DOC-04), demo refresh showcasing all layouts (Phase 5 / DEMO-01..03), plugin.cfg bump (Phase 5 / REL-01), GitHub Release zip (Phase 5 / REL-03), Tilesetter pair (TBT-01-DEFERRED / TBT-02-DEFERRED, v0.3+), variation-bank pick (VAR-PIXEL-01, v2), Y-axis variation / top tiles / multi-terrain (v2 backlog).
 
-**Plans**: 5 plans (1/5 complete)
+**Plans**: 5 plans (2/5 complete)
 Plans:
 - [x] 04-01-PLAN.md — Wave 1: fallback_routing_test.gd composed-canvas test (8 layouts × 1 pattern + PREVIEW-04 contract sub-tests) + run_tests.ps1 registry append (17 → 18) + 04-FALLBACK-UAT.md skeleton (PREVIEW-03 + PREVIEW-04)
-- [ ] 04-02-PLAN.md — Wave 1: doc-comment sweep across 12 addon scripts (annotation-only — class-level ## + every public method + every @export property; @experimental flag added ONLY on PentaTileLayout abstract base per D-04-03)
+- [x] 04-02-PLAN.md — Wave 1: doc-comment sweep across 12 addon scripts (annotation-only — class-level ## + every public method + every @export property; @experimental flag added ONLY on PentaTileLayout abstract base per D-04-03)
 - [ ] 04-03-PLAN.md — Wave 2: manual UAT eyeball pass + 04-DOC-SWEEP.md summary + Gemini cross-AI review (headless gemini -p) + fix-application loop per severity-tiered policy (D-04-13) + standard disqualification list (D-04-14)
 - [ ] 04-04-PLAN.md — Wave 3: Codex cross-AI review (headless codex exec --skip-git-repo-check -) on POST-Gemini-fix codebase per D-04-10 strict order + fix-application loop
 - [ ] 04-05-PLAN.md — Wave 4 closeout: REQUIREMENTS.md PREVIEW-03/04 status flips Pending → Complete + ROADMAP Phase 4 [x] + STATE.md Performance Metrics + Roadmap Evolution + cumulative LOC + Current Position advance to Phase 5
@@ -227,7 +227,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 3.5 → 4 → 5
 | 2. Native Layouts + Architectural Simplification | 7/7 + retroactive AUTO_STRIP wave + UAT bug-fix sweep | **Complete.** 3 review passes clean (0 Critical, 0 Warning, 13 Info). UAT bug-fix sweep 2026-04-28 closed 7 bug classes across commits 6553380..205fb67 — 12 automated tests green, methodology codified in `02-UAT-LESSONS-LEARNED.md`. User confirmed visual UAT via the 16-mask-pattern demo scene 2026-04-28T22:00. LOC overage (1827 vs ~1500 informational trigger) carried forward; formal gate is Phase 5 final audit. | 2026-04-28 |
 | 3. Public-Convention Layouts (Blob47 only; Tilesetter deferred to v0.3+) | 6/6 (5 executed + Plan 05 SKIPPED per D-86 = b) | **Complete with reduced scope per D-86 (b)** — Blob47Godot ships (TBT-03), audit deliverable + README footnote land (TBT-04, DOC-05); Tilesetter pair (TBT-01/02) + Tilesetter half of TEMPLATE-02 deferred to v0.3+ via `TBT-01-DEFERRED` / `TBT-02-DEFERRED` / `TEMPLATE-02-DEFERRED`. 15 automated tests green; matrix coverage extended to 6×18=108 combos in comprehensive_bitmask_test. Cumulative runtime LOC ~2455 (Phase 2 baseline 1827 + Phase 3 delta ~121 + measurement methodology drift; AT RISK carry-forward for Phase 5 final identity audit). No `addons/penta_tile/ATTRIBUTION.md` created (D-73 final guard). | 2026-04-29 |
 | 3.5. PixelLab Layouts (variation-bank pick deferred to v2) | 6/6 | **Complete.** Both PixelLab layouts (top-down + side-scroller) shipped with cached first-cell row-major dispatch. 2 new tests (pixellab_first_cell_test + pixellab_visual_regression_test) green; matrix grew to 8 layouts × 18 patterns = 144 combos; bounds extended with PIXLAB silhouettes. VAR-PIXEL-01 (variation-bank pick) preserved in v2 backlog per D-91. | 2026-04-29 |
-| 4. Fallback Routing + Doc Sweep + Cross-AI Review | 1/5 | Plan 01 complete: fallback routing composed-canvas test registered, anchor captured, UAT skeleton created | - |
+| 4. Fallback Routing + Doc Sweep + Cross-AI Review | 2/5 | Plan 02 complete: 12-script Godot doc-comment sweep committed; `PentaTileLayout` is the only `@experimental` surface; 18-test suite green | - |
 | 5. Demo Refresh + Documentation + Release | 0/TBD | Not started | - |
 
 ## Coverage
