@@ -57,10 +57,15 @@ const _MASK_TO_ATLAS: Dictionary = {
 }
 
 
+## Blob47Godot is single-grid: it paints directly on logic-painted cells.
 func is_dual_grid() -> bool:
 	return false
 
 
+## Compute the raw 8-bit Moore-neighborhood mask for [param coord].
+##
+## [param sample_fn] reports painted logic cells for N/E/S/W and diagonals; the
+## raw mask is collapsed by [method _collapse_8bit_moore] before atlas dispatch.
 func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	var mask := 0
 	if sample_fn.call(coord + _N):  mask |= 1
@@ -74,6 +79,11 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	return mask
 
 
+## Look up [param mask] in the 47-entry BorisTheBrave atlas convention.
+##
+## The raw 8-bit mask collapses first; unmapped masks defensively fall through
+## to slot (0, 0). Mask 0 is a valid single-grid isolated-cell dispatch per
+## [b]Critical Pitfall #9[/b].
 func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
 	# D-78 collapse first, then dict lookup. The collapse rule is total
 	# (every raw mask in [0, 256) collapses to one of the 47 keys), so the
@@ -92,6 +102,10 @@ func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
 # D-78: 256→47 collapse via BorisTheBrave's algorithmic rule.
 # A corner bit only survives if both adjacent edges are also set.
 # The function is total and idempotent — verified by blob_47_collapse_test.
+## Collapse an 8-bit Moore mask into BorisTheBrave's 47-entry blob convention.
+##
+## Compass-corner bits survive only when both adjacent cardinal bits are set.
+## [code]blob_47_collapse_test[/code] contains the canonical assertions.
 static func _collapse_8bit_moore(raw: int) -> int:
 	var n := raw & 1
 	var e := raw & 2
