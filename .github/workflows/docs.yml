@@ -1,0 +1,81 @@
+# .github/workflows/docs.yml
+#
+# Build and deploy the MkDocs Material documentation site to GitHub Pages.
+#
+# Phase 7 references (.planning/phases/07-repo-restructure-extract-tests-mkdocs-site-llm-friendly-docs/):
+#   07-SUMMARY.md           — MkDocs Material site shipped 2026-04-29 (dark-default + light toggle).
+#   07-LLM-DOCS-DECISION.md — LLM-friendly artifact generator REJECTED. Direct source
+#                             (docs/ + AGENTS.md + addons/penta_tile/**/*.gd ## comments + tests/)
+#                             is the LLM doc surface. This workflow therefore deploys ONLY the
+#                             rendered MkDocs site; it does not generate or commit a flat LLM file.
+#                             Revisit only if a concrete consumer appears (07-LLM-DOCS-DECISION.md
+#                             "Revisit Trigger").
+#
+# Repo-style references (.planning/phases/05-demo-refresh-documentation-release/05-CONTEXT.md):
+#   D-05-15 — manual triggers preferred when full automation is not justified; this workflow
+#             auto-fires on doc-touching pushes AND supports workflow_dispatch.
+#
+# Pitfall parity with release.yml:
+#   #2 permissions granted at JOB level (not workflow level).
+#   #3 actions/checkout@v6 — persist-credentials default suffices; no git push from this workflow.
+#   #5 deploy-pages requires Node 20+; ubuntu-latest (24.04) is fine.
+
+name: Deploy docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'requirements-docs.txt'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+# Concurrency: never run two deploys simultaneously; cancel an in-flight run if a newer
+# push lands. (GitHub Pages deploys are serialized server-side anyway, but this skips
+# wasted build minutes when commits land in quick succession.)
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+
+      - name: Install MkDocs Material
+        run: pip install -r requirements-docs.txt
+
+      - name: Build site (--strict matches Phase 7 verification)
+        # 07-SUMMARY.md verification step used `mkdocs build --strict`; preserve that gate.
+        run: mkdocs build --strict
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      # Pitfall #2: job-level grant (NOT workflow-level).
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
