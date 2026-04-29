@@ -20,18 +20,18 @@ class_name PentaTileSynthesis
 extends RefCounted
 
 # Slot ordering (LOCKED — Phase 2 architectural sweep).
-const SLOT_ISOLATED_CELL := 0
-const SLOT_FILL := 1
-const SLOT_BORDER := 2
-const SLOT_INNER_CORNER := 3
-const SLOT_OPPOSITE_CORNERS := 4
+const SLOT_ISOLATED_CELL := 0 ## Authored source of outer-corner rotations and synthesized archetypes.
+const SLOT_FILL := 1 ## Full-tile fill archetype; synthesized from slot 0 in ONE mode.
+const SLOT_BORDER := 2 ## Bottom-edge border archetype; synthesized in ONE/TWO modes.
+const SLOT_INNER_CORNER := 3 ## Inner-corner archetype; synthesized in ONE/TWO/THREE modes.
+const SLOT_OPPOSITE_CORNERS := 4 ## Diagonal opposite-corners archetype; synthesized unless authored in FIVE mode.
 
 # Mode constants — match PentaTileLayoutPenta.TileCountMode in Wave 3.
-const MODE_ONE := 1
-const MODE_TWO := 2
-const MODE_THREE := 3
-const MODE_FOUR := 4
-const MODE_FIVE := 5
+const MODE_ONE := 1 ## One authored slot: IsolatedCell only.
+const MODE_TWO := 2 ## Two authored slots: IsolatedCell and Fill.
+const MODE_THREE := 3 ## Three authored slots: IsolatedCell, Fill, and Border.
+const MODE_FOUR := 4 ## Four authored slots: IsolatedCell through InnerCorner.
+const MODE_FIVE := 5 ## Five authored slots: every Penta archetype is authored.
 
 # Number of output slots in a synthesized strip (IsolatedCell + 4 archetypes).
 const _STRIP_SLOT_COUNT := 5
@@ -47,7 +47,8 @@ const _TRANSFORM_TRANSPOSE := TileSetAtlasSource.TRANSFORM_TRANSPOSE  # 16384
 # Public API
 # ---------------------------------------------------------------------------
 
-## Synthesizes a single strip of _STRIP_SLOT_COUNT (5) slots from `source_tile_set`.
+## Synthesizes a single strip of [code]_STRIP_SLOT_COUNT[/code] slots from
+## [param source_tile_set].
 ##
 ## STRIP LAYOUT (Interpretation A — locked): strips are PERPENDICULAR to the slot
 ## axis. For HORIZONTAL slots, each strip is a row at fixed Y; for VERTICAL slots,
@@ -56,12 +57,12 @@ const _TRANSFORM_TRANSPOSE := TileSetAtlasSource.TRANSFORM_TRANSPOSE  # 16384
 ## counts. This matches `PentaTileLayoutPenta.resolve_strip_modes`.
 ##
 ## Parameters:
-##   source_tile_set – user's TileSet (NOT mutated)
-##   source_id       – atlas source id within source_tile_set
-##   axis            – 0 = HORIZONTAL (slots along X), 1 = VERTICAL (slots along Y)
-##   strip_index     – which strip (0 = first row/column under Interpretation A)
-##   mode            – MODE_ONE..MODE_FIVE
-##   strip_origin    – Optional Vector2i source-atlas coord of slot 0 of THIS strip.
+##   [param source_tile_set] - user's TileSet (NOT mutated).
+##   [param source_id] - atlas source id within [param source_tile_set].
+##   [param axis] - 0 = HORIZONTAL (slots along X), 1 = VERTICAL (slots along Y).
+##   [param strip_index] - which strip (0 = first row/column under Interpretation A).
+##   [param mode] - [constant MODE_ONE] through [constant MODE_FIVE].
+##   [param strip_origin] - Optional [Vector2i] source-atlas coord of slot 0 of THIS strip.
 ##                     Default Vector2i(-1, -1) sentinel uses strip_index alone:
 ##                       HORIZONTAL: (0, strip_index)
 ##                       VERTICAL:   (strip_index, 0)
@@ -195,9 +196,10 @@ static func synthesize_strip(
 	}
 
 
-## Per-vertex transform under TRANSFORM_FLIP_H/V/TRANSPOSE flags.
-## Local origin: tile-CENTER (LOCKED — Gate 2). v in tile-center-local coords.
-## Apply TRANSPOSE first, then FLIP_H, then FLIP_V (canonical order matching Godot internals).
+## Transform one collision/navigation vertex under TRANSFORM_FLIP_H/V/TRANSPOSE flags.
+##
+## [param v] is in tile-center-local coords. [param flags] is the packed transform
+## bit field; TRANSPOSE is applied before FLIP_H and FLIP_V per Gate 2.
 static func transform_vertex(v: Vector2, flags: int) -> Vector2:
 	var out := v
 	if flags & _TRANSFORM_TRANSPOSE:
@@ -209,14 +211,15 @@ static func transform_vertex(v: Vector2, flags: int) -> Vector2:
 	return out
 
 
-## Axis-aligned rectangle polygon clipping — canonical Sutherland-Hodgman algorithm.
+## Clip [param points] against [param sub_rect] with canonical Sutherland-Hodgman logic.
 ## Clips against each of the 4 half-planes (left, right, top, bottom) in turn so all
 ## four crossing cases (in/in, in/out, out/in, out/out-but-crossing) fall out of the
 ## per-edge logic naturally. WR-01 FIX: the prior hand-rolled all-edges-at-once
 ## variant dropped the both-outside-but-segment-crosses-rect case, silently mis-clipping
 ## non-convex source polygons.
 ##
-## `points` in tile-center-local coords; `sub_rect` also in tile-center-local coords.
+## [param points] is in tile-center-local coords; [param sub_rect] is also in
+## tile-center-local coords.
 ## Returns clipped polygon rescaled from sub_rect-local coords to full tile coords.
 ## Drops polygon (returns empty) if < 3 vertices remain after clipping.
 static func clip_polygon_to_subrect(
@@ -323,8 +326,9 @@ static func _intersect_edge(p0: Vector2, p1: Vector2, rect: Rect2, edge: int) ->
 	return p0
 
 
-## Tile-size validation per Gate 1 constraints.
-## Returns Array[String] of warnings; empty if valid.
+## Validate [param tile_size] against Gate 1 synthesis constraints.
+##
+## Returns an [Array] of warning strings; empty means the tile size is valid.
 static func validate_tile_size(tile_size: Vector2i) -> Array:
 	var warnings: Array = []
 	if tile_size.x != tile_size.y:
@@ -336,7 +340,7 @@ static func validate_tile_size(tile_size: Vector2i) -> Array:
 	return warnings
 
 
-## Builds a runtime TileSet from synthesize_strip output(s).
+## Builds a runtime [Class TileSet] from [method synthesize_strip] output.
 ##
 ## Accepts EITHER a single result Dictionary (AUTO/explicit modes — produces a
 ## 5-col × 1-row atlas) OR an Array[Dictionary] (AUTO_STRIP — produces a 5-col ×

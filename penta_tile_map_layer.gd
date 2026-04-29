@@ -3,6 +3,25 @@
 class_name PentaTileMapLayer
 extends TileMapLayer
 
+## Dual-grid autotiling [Class TileMapLayer] subclass driven by a [PentaTileLayout] resource.
+##
+## Users paint with inherited [method TileMapLayer.set_cell] and [method TileMapLayer.erase_cell];
+## this node dispatches those logic cells into visual cells through [method _update_cells].
+## The [member layout] resource defines the mask topology and slot resolution.
+##
+## Contract invariants:
+##   - When [member tile_set] is [code]null[/code] and [member layout] is not [code]null[/code],
+##     the layer auto-fills [member tile_set] from [method PentaTileLayout.get_fallback_tile_set]
+##     (PREVIEW-03).
+##   - User-supplied [member tile_set] is never overwritten; [method _set] flips
+##     [member _tile_set_is_fallback] to [code]false[/code] on direct assignment (PREVIEW-04).
+##   - [member logic_layer_opacity] = [code]0.0[/code] hides the parent's raw cells via
+##     [member CanvasItem.self_modulate].a, not [member CanvasItem.visible]; see
+##     [b]Critical Pitfall #7[/b].
+##
+## See:
+##   - .planning/research/PITFALLS.md
+##   - .planning/ROADMAP.md Phase 04 Fallback Routing
 const _PRIMARY_LAYER_NAME := "_PentaTileVisual"
 
 # Preload synthesis utility to avoid class_name symbol-table ordering failures
@@ -19,6 +38,9 @@ const _PentaTileSynthesis = preload("res://addons/penta_tile/penta_tile_synthesi
 # ordering failures in headless / --script mode.
 const _DEFAULT_LAYOUT_SCRIPT = preload("res://addons/penta_tile/layouts/penta_tile_layout_penta.gd")
 
+## Source [Class TileSetAtlasSource] ID for atlas reads. [code]-1[/code] means
+## "use the first source discovered in [member tile_set]." Set explicitly only
+## when the user's TileSet has multiple sources.
 @export var atlas_source_id: int = -1:
 	set(value):
 		atlas_source_id = value
@@ -32,6 +54,11 @@ const _DEFAULT_LAYOUT_SCRIPT = preload("res://addons/penta_tile/layouts/penta_ti
 # native TileMapLayer behavior (no autotile dispatch) can clear the layout to
 # null via the inspector — null-layout fallback in _sync_visual_layers makes
 # the parent render its tile_map_data directly via Godot's stock pipeline.
+## The [PentaTileLayout] resource that defines this layer's mask topology and
+## slot resolution. Setting this auto-fills [member tile_set] from
+## [method PentaTileLayout.get_fallback_tile_set] if no user-supplied TileSet is
+## bound (PREVIEW-03). Default value is a fresh [PentaTileLayoutPenta] per node;
+## clear to [code]null[/code] for native [Class TileMapLayer] passthrough.
 @export var layout: PentaTileLayout = _DEFAULT_LAYOUT_SCRIPT.new():
 	set(value):
 		if layout == value:
@@ -76,6 +103,11 @@ const _DEFAULT_LAYOUT_SCRIPT = preload("res://addons/penta_tile/layouts/penta_ti
 # fallback (true) or assigned manually by the user (false). Persisted in the
 # scene/.tres so the relationship survives reload. Flipped to false by the
 # `_set` hook on any non-suppressed write to `tile_set`.
+## Storage flag tracking whether the current [member tile_set] was auto-filled
+## from the layout's fallback ([code]true[/code]) or assigned by the user
+## ([code]false[/code]). Persisted in the saved scene so the relationship
+## survives reload. Flipped to [code]false[/code] by [method _set] on any
+## non-suppressed write to [member tile_set].
 @export_storage var _tile_set_is_fallback: bool = false
 
 
@@ -89,27 +121,39 @@ var _suppress_tile_set_override: bool = false
 # (suppressed) apart from user assignments (flips the flag, locks fallback
 # auto-replacement off). Returning false lets Godot apply the default property
 # behavior after our hook records the override.
+## Intercept inspector and scripted writes to [member tile_set] to distinguish
+## auto-fills from user assignments. Suppressed auto-fills preserve fallback
+## routing; direct assignments flip [member _tile_set_is_fallback] to
+## [code]false[/code] and return [code]false[/code] so Godot applies its default
+## property behavior after the PREVIEW-04 hook records the override.
 func _set(property: StringName, value: Variant) -> bool:
 	if property == "tile_set" and not _suppress_tile_set_override:
 		if value != tile_set:
 			_tile_set_is_fallback = false
 	return false
 
+## Visibility of the parent's raw non-dispatched cells, applied via
+## [member CanvasItem.self_modulate].a. Defaults to [code]0.0[/code] so only the
+## dispatched [code]_PentaTileVisual[/code] child renders. Using modulation
+## instead of [member CanvasItem.visible] avoids [b]Critical Pitfall #7[/b].
 @export_range(0.0, 1.0, 0.01) var logic_layer_opacity: float = 0.0:
 	set(value):
 		logic_layer_opacity = value
 		_apply_logic_layer_opacity()
 
+## Z-index offset applied to the generated visual layer relative to this logic layer.
 @export var visual_z_index_offset: int = 0:
 	set(value):
 		visual_z_index_offset = value
 		_sync_visual_layers()
 
+## Enables collision on the generated visual layer that carries dispatched tiles.
 @export var generated_collision_enabled: bool = true:
 	set(value):
 		generated_collision_enabled = value
 		_sync_visual_layers()
 
+## Enables collision on this hidden logic layer when callers need raw-cell collision.
 @export var logic_collision_enabled: bool = false:
 	set(value):
 		logic_collision_enabled = value
@@ -131,6 +175,11 @@ var _synthesized_tile_set: TileSet = null
 var _synthesis_signature: int = 0
 
 
+## Mirror the [member layout] setter's auto-fill chain for the default-instantiated
+## layout. Godot 4 does not invoke [code]@export[/code] setters for default
+## values, so fresh nodes need this [member tile_set] == [code]null[/code] to
+## [method PentaTileLayout.get_fallback_tile_set] path to start with a bound
+## fallback.
 func _init() -> void:
 	# Godot 4 doesn't fire property setters for @export default values, so the
 	# `layout` setter's signal-connect + tile_set auto-fill chain never runs
@@ -154,6 +203,8 @@ func _init() -> void:
 				_tile_set_is_fallback = true
 
 
+## Prepare the generated visual layer and schedule the first full dispatch after
+## Godot has finished entering the scene tree.
 func _ready() -> void:
 	_ensure_visual_layers()
 	_apply_logic_layer_opacity()
@@ -161,6 +212,9 @@ func _ready() -> void:
 	rebuild.call_deferred()
 
 
+## Dispatch changed logic coordinates into visual cells through the active layout.
+## [param coords] is the set Godot reports dirty; [param forced_cleanup] clears
+## generated output when the engine invalidates this layer.
 func _update_cells(coords: Array[Vector2i], forced_cleanup: bool) -> void:
 	_ensure_visual_layers()
 	if forced_cleanup or tile_set == null:
@@ -192,6 +246,9 @@ func _update_cells(coords: Array[Vector2i], forced_cleanup: bool) -> void:
 		_paint_via_layout(display_cell, active_layout, source, sample_fn)
 
 
+## Force a full re-dispatch of all painted cells. Useful after external changes
+## to the source [member tile_set] that [signal Resource.changed] did not fire on,
+## such as direct [method TileSet.add_source] mutation.
 func rebuild() -> void:
 	_ensure_visual_layers()
 	_clear_visual_layers()
