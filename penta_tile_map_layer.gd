@@ -1,5 +1,5 @@
 @tool
-@icon("res://addons/penta_tile/brand/penta_tile_icon.png")
+@icon("res://brand/penta_tile_icon.png")
 class_name PentaTileMapLayer
 extends TileMapLayer
 
