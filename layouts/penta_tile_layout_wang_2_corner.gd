@@ -30,10 +30,14 @@ const _SW := Vector2i(-1, 1)
 const _NW := Vector2i(-1, -1)
 
 
+## Wang2Corner is single-grid: it paints directly on logic-painted cells.
 func is_dual_grid() -> bool:
 	return false
 
 
+## Compute the 4-bit diagonal-corner mask for [param coord] using NE=1, SE=2, SW=4, NW=8.
+##
+## [param sample_fn] reports which diagonal logic cells are painted.
 func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	var mask := 0
 	if sample_fn.call(coord + _NE): mask |= 1
@@ -43,6 +47,10 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	return mask
 
 
+## Convert [param mask] to its dedicated 4x4 atlas slot.
+##
+## Mask 0 is a valid single-grid isolated-cell dispatch to atlas (0, 0), not an
+## erase; see [b]Critical Pitfall #9[/b].
 func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
 	# mask=0 (no painted diagonal neighbors — an isolated cell, OR a 1xN/Nx1
 	# straight line where no diagonals exist): dispatch to atlas (0, 0). A

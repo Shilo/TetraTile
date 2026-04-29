@@ -49,6 +49,9 @@ enum TileCountMode {
 	FIVE = 5,
 }
 
+## Strip axis: [constant Axis.HORIZONTAL] reads authored slots along X, while
+## [constant Axis.VERTICAL] reads them along Y. The synthesized output atlas
+## remains axis-invariant at [code]Vector2i(slot, strip_index)[/code].
 @export var axis: Axis = Axis.HORIZONTAL:
 	set(value):
 		if axis == value:
@@ -58,6 +61,9 @@ enum TileCountMode {
 		notify_property_list_changed()
 		emit_changed()
 
+## Source tile count mode. [constant TileCountMode.AUTO] detects the strip size
+## from the active atlas dimension; [constant TileCountMode.AUTO_STRIP] detects
+## each strip independently; explicit ONE through FIVE skip detection.
 @export var tile_count: TileCountMode = TileCountMode.AUTO:
 	set(value):
 		if tile_count == value:
@@ -70,6 +76,9 @@ enum TileCountMode {
 # lookup and may be replaced when those properties change. When the user assigns a
 # texture themselves, this flips false and `_refresh_preset_bitmask` becomes a no-op
 # so user art is never silently overwritten.
+## Storage flag tracking whether [member bitmask_template] still points at the
+## axis x tile_count preset PNG. User-assigned art flips this to [code]false[/code]
+## so preset refresh does not overwrite it.
 @export_storage var _bitmask_is_preset: bool = true
 
 # Class-level lookup table for axis × mode → bundled bitmask PNG path.
@@ -126,14 +135,21 @@ const _BL := Vector2i(-1, 0)
 const _BR := Vector2i(0, 0)
 
 
+## Penta is a dual-grid layout: it paints at the half-tile-offset display cell.
 func is_dual_grid() -> bool:
 	return true
 
 
+## Penta requires runtime synthesis so ONE through FOUR authored modes still
+## expose the full five-archetype dispatch table.
 func needs_synthesis() -> bool:
 	return true
 
 
+## Compute the 4-bit corner mask for [param coord] using TL=1, TR=2, BL=4, BR=8.
+##
+## [param sample_fn] is the logic-cell presence query supplied by
+## [PentaTileMapLayer].
 func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	var mask := 0
 	if sample_fn.call(coord + _TL): mask |= 1
@@ -143,6 +159,10 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	return mask
 
 
+## Return the slot and transform for [param mask] under Penta's 16-state corner table.
+##
+## [param strip_index] selects the synthesized atlas row in AUTO_STRIP mode.
+## Mask 0 returns [code]null[/code] because dual-grid empty display cells erase.
 # 16-state corner-mask resolution under the new Phase 2 slot ordering.
 # Slot indices remapped from Phase 1's horizontal layout per the locked ordering;
 # OuterCorner now derives from slot 0 + transform per Gate 1 anchoring spec.
@@ -154,6 +174,7 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 #
 # strip_index (default 0) is the synthesized atlas Y-row to dispatch to. AUTO_STRIP
 # resolves per painted cell via `resolve_display_strip`; AUTO/explicit always 0.
+## Dispatch [param mask] to a Penta slot in [param strip_index].
 func mask_to_atlas(mask: int, strip_index: int = 0) -> PentaTileAtlasSlot:
 	match mask:
 		0:
@@ -204,6 +225,10 @@ func mask_to_atlas(mask: int, strip_index: int = 0) -> PentaTileAtlasSlot:
 	return null
 
 
+## Build an axis-invariant [PentaTileAtlasSlot] at [code]Vector2i(slot_index, strip_index)[/code].
+##
+## The source-reading [member axis] never changes synthesized output coords; this
+## is the WR-07 contract that keeps VERTICAL layouts renderable.
 # Build an AtlasSlot — output coords are Vector2i(slot_index, strip_index).
 #
 # WR-07 FIX: the SYNTHESIZED atlas is ALWAYS a horizontal strip regardless of `axis`.
@@ -224,6 +249,11 @@ func _make_slot(slot_index: int, transform_flags: int, strip_index: int = 0) -> 
 	return slot
 
 
+## Resolve the AUTO_STRIP row for [param coord] from the first non-empty
+## TL/TR/BL/BR neighbor's source atlas coords.
+##
+## [param sample_atlas_fn] returns source atlas coords for a logic cell. AUTO and
+## explicit modes always return 0 because they synthesize a single strip.
 # AUTO_STRIP per-strip dispatch: returns the strip_index for `coord` based on the
 # FIRST non-empty TL/TR/BL/BR neighbor's source-atlas coords (canonical order).
 # AUTO/explicit modes always return 0 (single-strip output atlas).
@@ -238,6 +268,7 @@ func _make_slot(slot_index: int, transform_flags: int, strip_index: int = 0) -> 
 # the entire 16-state mask dispatch at this display cell. The visual boundary
 # between two different-mode strips may render wrong — proper terrain
 # transitions are MULTITERR-* in the v2 backlog (out of v0.2 scope).
+## Return the selected source strip for [param coord].
 func resolve_display_strip(coord: Vector2i, sample_atlas_fn: Callable) -> int:
 	if tile_count != TileCountMode.AUTO_STRIP:
 		return 0                                                                      # single-strip output for AUTO/explicit
@@ -253,6 +284,10 @@ func resolve_display_strip(coord: Vector2i, sample_atlas_fn: Callable) -> int:
 # Wave 6: AUTO/AUTO_STRIP detection + configuration warnings
 # ---------------------------------------------------------------------------
 
+## Resolve the active concrete tile-count mode for [param tile_set] and [param source_id].
+##
+## Explicit modes return unchanged. AUTO maps the active atlas axis size 1..5 to
+## ONE..FIVE; malformed dimensions remain AUTO so callers render nothing.
 # PENTA-SYNTH-02: AUTO-mode dimension-only detection. O(1).
 # Returns the active TileCountMode for this layout given the current source TileSet.
 # When tile_count is explicit (ONE..FIVE), returns it directly (skips detection).
@@ -280,6 +315,10 @@ func resolve_active_mode(tile_set: TileSet, source_id: int) -> TileCountMode:
 		_: return TileCountMode.AUTO    # 0 or 6+ → unresolved; caller renders nothing
 
 
+## Resolve one tile-count mode per source strip for AUTO_STRIP dispatch.
+##
+## Returns an Array whose indices match the strip axis. Gappy strips resolve to
+## AUTO so the layer leaves that synthesized row empty.
 # PENTA-SYNTH-03: AUTO_STRIP per-strip detection. O(strips × axis_size).
 # Returns one TileCountMode per strip in source-axis order. Strip indices match
 # the OPPOSITE axis from `axis` (HORIZONTAL strips run along X within a Y-row;
@@ -334,6 +373,10 @@ func resolve_strip_modes(tile_set: TileSet, source_id: int) -> Array:
 	return modes
 
 
+## Return inspector warning strings for Penta atlas detection and configuration mismatches.
+##
+## [param tile_set] and [param source_id] identify the source atlas to inspect.
+## Warnings are surfaced through [method PentaTileMapLayer._get_configuration_warnings].
 # PENTA-SYNTH-08: emit configuration warnings. Called by PentaTileMapLayer's
 # _get_configuration_warnings hook to surface issues in the inspector's warning panel.
 # Returns one PackedStringArray of human-readable warnings covering three failure modes:
@@ -465,5 +508,3 @@ func _fallback_atlas_grid_size() -> Vector2i:
 	if axis == Axis.HORIZONTAL:
 		return Vector2i(mode_count, 1)
 	return Vector2i(1, mode_count)
-
-

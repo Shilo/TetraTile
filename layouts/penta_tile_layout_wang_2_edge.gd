@@ -23,10 +23,14 @@ const _S := Vector2i(0, 1)
 const _W := Vector2i(-1, 0)
 
 
+## Wang2Edge is single-grid: it paints directly on logic-painted cells.
 func is_dual_grid() -> bool:
 	return false
 
 
+## Compute the 4-bit cardinal-edge mask for [param coord] using N=1, E=2, S=4, W=8.
+##
+## [param sample_fn] reports which neighboring logic cells are painted.
 func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	var mask := 0
 	if sample_fn.call(coord + _N): mask |= 1
@@ -36,6 +40,10 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	return mask
 
 
+## Convert [param mask] to its dedicated 4x4 atlas slot.
+##
+## Mask 0 is a valid single-grid isolated-cell dispatch to atlas (0, 0), not an
+## erase; see [b]Critical Pitfall #9[/b].
 func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
 	# mask=0 (isolated cell with no cardinal neighbors): dispatch to atlas (0, 0).
 	# A logic-painted cell must always render — single-grid Wang2Edge can't fall
