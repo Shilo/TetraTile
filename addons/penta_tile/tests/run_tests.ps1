@@ -64,6 +64,7 @@ try {
         "penta_ground_hollow_test",
         "determinism_test",
         "blob_47_collapse_test",
+        "blob_47_hollow_test",
         "single_grid_8_moore_propagation_test"
     )
 
