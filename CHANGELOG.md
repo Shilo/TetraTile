@@ -127,6 +127,64 @@ The 6-commit cycle exposed gaps in the original test methodology. Lessons codifi
 6. If you reference `template_image` anywhere, rename to `bitmask_template`.
 7. If you bind `fallback_tile_set` directly on a layout, remove it — `get_fallback_tile_set()` builds one from `bitmask_template` automatically.
 
+### Added — Phase 3: Public-Convention Layout (Blob 47 Godot)
+
+- **`PentaTileLayoutBlob47Godot`** — 7×7 atlas with 47 unique tiles plus discrete sub-block gaps. Single-grid 8-bit Moore-neighbor mask collapsed to 47 cell-states via the canonical [BorisTheBrave 47-blob reference](https://www.boristhebrave.com/2021/11/14/classification-of-tilesets/) algorithmic rule (256 → 47 collapse). Slot-to-mask dispatch via 47-entry `_MASK_TO_ATLAS` dict.
+- **8-Moore single-grid propagation patch** — `PentaTileMapLayer._mark_affected_single_grid_cells` extended from 4 cardinals to 8 Moore neighbors so 47-blob layouts pick up diagonal neighbors during batch paint. 4-cardinal layouts unaffected (extra diagonal cells hit the existing logic-painted-only short-circuit).
+- **TileBitTools acknowledgment** — README "External Resources" section gains a 1-line footnote citing TileBitTools as design inspiration. Per D-72/D-73, NO `addons/penta_tile/ATTRIBUTION.md` ships — every layout is sourced from each format's own primary reference (BorisTheBrave for 47-blob, etc.).
+- **3 new tests:** `blob_47_collapse_test`, `blob_47_hollow_test`, `single_grid_8_moore_propagation_test`.
+
+Tilesetter Wang 15 + Blob 47 layouts (`TBT-01`, `TBT-02`) deferred to v0.3+ — Tilesetter primary-source slot tables not located during plan-phase research; tracked as `TBT-01-DEFERRED` / `TBT-02-DEFERRED` / `TEMPLATE-02-DEFERRED` in REQUIREMENTS.md v2 backlog.
+
+### Added — Phase 3.5: PixelLab Layouts
+
+- **`PentaTileLayoutPixelLabTopDown`** — 8×8 atlas, single-grid, 4-bit corner mask. Cell-to-role table verbatim from PixelLab Aseprite plugin's `tileset_transform.lua:17-26` `tileset_output`. Role-to-mask bijection `[4, 10, 13, 12, 9, 14, 15, 7, 2, 3, 11, 5, 0, 8, 6, 1]` shared with the side-scroller variant.
+- **`PentaTileLayoutPixelLabSideScroller`** — 8×8 atlas, single-grid; same dispatch shape as Top-Down with the `tileset_output_side` cell-to-role table from `tileset_transform.lua:28-36`.
+- **First-cell row-major dispatch** — when multiple cells map to the same mask (PixelLab variation banks), `mask_to_atlas` deterministically returns the row-major-first cell. Per-cell deterministic-hash variation-bank pick (`VAR-PIXEL-01`) is deferred to v2 backlog (design-coupled with `VAR-01` and `MULTITERR-01`).
+- **2 new tests:** `pixellab_first_cell_test` (D-89 cache contract), `pixellab_visual_regression_test` (composed-canvas vs checked-in spike-003 PixelLab samples).
+- Matrix coverage in `comprehensive_bitmask_test` grew 6×18=108 → 8×18=144 combos.
+
+### Added — Phase 4: Fallback Routing + Doc-Comment Sweep + Cross-AI Review
+
+- **Fallback routing** — `PentaTileMapLayer` auto-fills `tile_set` from `layout.get_fallback_tile_set()` when `tile_set == null` and `layout != null`. Direct-assigned `tile_set` overrides the fallback (the `_tile_set_is_fallback` flag on the layer is the source of truth). Verified across all 8 actually-shipped layouts via composed-canvas test `fallback_routing_test.gd` (PREVIEW-03 + PREVIEW-04 contract).
+- **Doc-comment sweep** — class-level `##` blocks + per-public-method `##` blocks + per-`@export` `##` blocks added to all 12 addon scripts, per [Godot's official documentation comment format](https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_documentation_comments.html). `@experimental` annotation on `PentaTileLayout` (the abstract base — custom-layout subclassing is experimental in v0.2). Annotation-only sweep — zero logic changes.
+- **Cross-AI review pass** — Gemini headless review against the v0.2 codebase + planning docs returned `status: clean` (0 findings). Codex pass DEFERRED at closeout due to a hard external CLI quota wall; preserved prompt at `.planning/phases/04-fallback-routing/04-CODEX-PROMPT.md` for re-use when quota resets. Phase 4 ships with single-pass cross-AI coverage.
+- **1 new test:** `fallback_routing_test`. Suite total: 18 tests.
+
+### BREAKING — Phase 5: Demo Refresh
+
+The `addons/penta_tile/demo/penta_tile_demo.tscn` scene is rewritten end-to-end. The following demo files are RETIRED (clean delete; no compat shims):
+
+- `demo_player.gd` + `demo_player.gd.uid` (CharacterBody2D platformer player)
+- `penta_tile_ground.png` + `penta_tile_ground.png.import` + `penta_tile_ground.tres` (authored demo TileSet)
+- `_regen_demo_ground.py` (Python regen utility for the deleted ground.tres)
+- `penta_tile_dual_grid_16.tres`, `penta_tile_minimal_3x3.tres`, `penta_tile_wang_2_corner.tres`, `penta_tile_wang_2_edge.tres` (4 unused single-variant layout `.tres` orphans from earlier scene iterations)
+
+Replaced by:
+
+- **8-instance spatial-grid showcase** in `penta_tile_demo.tscn` — one `PentaTileMapLayer` per actually-shipped layout (Penta FOUR, DualGrid16, Wang2Edge, Wang2Corner, Min3x3, Blob47Godot, PixelLab Top-Down, PixelLab Side-Scroller), each with a sibling `Label` node naming the layout
+- Every instance uses `tile_set = null` and binds a layout Resource — `get_fallback_tile_set()` provides the pixels (proves the prototyping UX end-to-end)
+- **`demo_runtime_painter.gd` rewritten** with hover-target detection — left-click paints into whichever layer the cursor is over, right-click erases. The single-target `@export var map_path: NodePath` was deleted (no compat shim); the painter walks scene-tree children dynamically per event.
+
+### Added — Phase 5: Documentation extensions
+
+- **README "Layouts" section** — 8-row table listing each layout's class, atlas grid, tile count, mask, and convention source (DOC-01).
+- **README "Upgrading from 0.1.x" section** — table of v0.1 → v0.2 surface migrations (DOC-02).
+- **README "Authoring a Custom Layout" section** — minimal `@experimental`-marked subclass example showing the three virtuals (`compute_mask`, `mask_to_atlas`, `get_fallback_tile_set`) (DOC-03).
+- **README "Identity & Footprint" section** — 3-axis identity audit summary against TileMapDual v5.0.2 (LOC + public surface + hot-path depth + anti-pattern register check). Full audit report at `.planning/phases/05-demo-refresh-documentation-release/05-LOC-AUDIT.md`. Per [D-05-11], LOC is reported as signal, not a fail criterion.
+
+### Added — Phase 5: Release automation
+
+- **`.github/workflows/release.yml`** — single `workflow_dispatch`-triggered GitHub Actions workflow handles the entire release: auto-version-increment from `plugin.cfg` (D-05-16: minor +1, rolls to major when minor ≥ 9, no patch bumps), CI checks (headless project import + 18-test suite + headless demo open via stderr-grep failure detector — Pitfall #1 mitigated), commit / tag / push, `git archive` zip build, CHANGELOG slice extraction via `awk`, GitHub Release publish via `softprops/action-gh-release@v3`.
+- **`addons/penta_tile/tests/run_tests.sh`** — Linux mirror of `run_tests.ps1` (the existing PowerShell runner stays for Windows local dev). Identical 18-test inventory.
+- Workflow is the SOLE release path — no sibling `build_release.sh` script at repo root, no `workflow_dispatch.inputs` for explicit version override (per D-05-15 hard rule "if it cannot be automatic, remove it").
+
+### Migration notes for v0.1.x consumers (additional)
+
+8. The bundled demo no longer ships a `CharacterBody2D` player or an authored `penta_tile_ground.tres`. If you forked the demo, its dependencies (`demo_player.gd`, `penta_tile_ground.{png,tres}`, `_regen_demo_ground.py`) are GONE. Either restore them locally from a v0.1 snapshot or migrate to the new bundled-fallback showcase pattern.
+9. The `demo_runtime_painter.gd` script no longer takes a `map_path: NodePath` @export — it walks scene-tree children for `PentaTileMapLayer` instances dynamically per mouse event. If you embedded the painter in your own scene, drop the `map_path` reference.
+10. After downloading a v0.2.x GitHub Release zip and extracting to a fresh Godot 4.6 project, run `godot --import` once to populate `.godot/` (standard Godot project bootstrap; not addon-specific).
+
 ---
 
 ## [0.1.0] — 2025-04-26
