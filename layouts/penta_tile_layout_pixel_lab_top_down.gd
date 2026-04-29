@@ -35,6 +35,7 @@ const _BR := Vector2i(0, 0)
 
 # 64 ints, row-major (row * 8 + col). Verbatim from
 # tileset_transform.lua:17-26 `tileset_output`. Each int is a role ID 0..15.
+## D-94 locked cell-to-role table from PixelLab's top-down tileset output.
 const _CELL_TO_ROLE := [
 	6, 6, 6, 6, 6, 6, 6, 6,
 	6, 7, 9, 10, 7, 9, 10, 6,
@@ -49,6 +50,7 @@ const _CELL_TO_ROLE := [
 # role index → 4-bit corner mask. LOCKED by spike 003. Same bijection in
 # both PIXLAB layouts; D-98 duplicates per-subclass (GDScript 2 cannot
 # parse cross-class const references).
+## D-94 role-to-mask bijection, duplicated per subclass by D-98.
 const _ROLE_TO_MASK := [4, 10, 13, 12, 9, 14, 15, 7, 2, 3, 11, 5, 0, 8, 6, 1]
 
 # Cached at _init: row-major-first cell for each of 16 masks.
@@ -60,6 +62,9 @@ func _init() -> void:
 	_init_cache()
 
 
+## Build the row-major-first cache from mask to atlas cell.
+##
+## This locks D-89 first-cell selection and keeps [method mask_to_atlas] O(1).
 func _init_cache() -> void:
 	_first_cell_by_mask = []
 	_first_cell_by_mask.resize(16)
@@ -73,10 +78,14 @@ func _init_cache() -> void:
 				_first_cell_by_mask[mask] = Vector2i(col, row)
 
 
+## PixelLabTopDown is single-grid: it paints directly on logic-painted cells.
 func is_dual_grid() -> bool:
 	return false
 
 
+## Compute the 4-bit corner mask for [param coord] using TL=1, TR=2, BL=4, BR=8.
+##
+## [param sample_fn] reports which neighboring logic cells are painted.
 func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	var mask := 0
 	if sample_fn.call(coord + _TL): mask |= 1
@@ -86,6 +95,10 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	return mask
 
 
+## Return the cached row-major-first cell for [param mask] (D-89).
+##
+## For [code]mask = 0[/code] (isolated cell), dispatches to role 12 -> cell
+## [code](2, 2)[/code] per D-104 for the top-down variant.
 func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
 	# D-104 / Pitfall #9: mask=0 dispatches to role 12's first cell (2, 2);
 	# single-grid mask=0 is NOT erase. Cache returns a valid Vector2i for

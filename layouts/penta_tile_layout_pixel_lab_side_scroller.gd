@@ -34,6 +34,7 @@ const _BR := Vector2i(0, 0)
 
 # 64 ints, row-major (row * 8 + col). Verbatim from
 # tileset_transform.lua:28-36 `tileset_output_side`. Each int is a role ID 0..15.
+## D-94 locked cell-to-role table from PixelLab's side-scroller tileset output.
 const _CELL_TO_ROLE := [
 	12, 12, 12, 12, 13,  3,  3,  3,
 	 0, 13,  3,  3, 14,  9, 10,  6,
@@ -47,6 +48,7 @@ const _CELL_TO_ROLE := [
 
 # role index → 4-bit corner mask. LOCKED by spike 003. Same bijection as
 # PentaTileLayoutPixelLabTopDown; D-98 duplicates per-subclass.
+## D-94 role-to-mask bijection, duplicated per subclass by D-98.
 const _ROLE_TO_MASK := [4, 10, 13, 12, 9, 14, 15, 7, 2, 3, 11, 5, 0, 8, 6, 1]
 
 # Cached at _init: row-major-first cell for each of 16 masks.
@@ -58,6 +60,9 @@ func _init() -> void:
 	_init_cache()
 
 
+## Build the row-major-first cache from mask to atlas cell.
+##
+## This locks D-89 first-cell selection and keeps [method mask_to_atlas] O(1).
 func _init_cache() -> void:
 	_first_cell_by_mask = []
 	_first_cell_by_mask.resize(16)
@@ -71,10 +76,14 @@ func _init_cache() -> void:
 				_first_cell_by_mask[mask] = Vector2i(col, row)
 
 
+## PixelLabSideScroller is single-grid: it paints directly on logic-painted cells.
 func is_dual_grid() -> bool:
 	return false
 
 
+## Compute the 4-bit corner mask for [param coord] using TL=1, TR=2, BL=4, BR=8.
+##
+## [param sample_fn] reports which neighboring logic cells are painted.
 func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	var mask := 0
 	if sample_fn.call(coord + _TL): mask |= 1
@@ -84,6 +93,10 @@ func compute_mask(coord: Vector2i, sample_fn: Callable) -> int:
 	return mask
 
 
+## Return the cached row-major-first cell for [param mask].
+##
+## For [code]mask = 0[/code], dispatches to role 12 -> cell [code](0, 0)[/code]
+## per D-104 for the side-scroller variant, unlike top-down's [code](2, 2)[/code].
 func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
 	# D-104 / Pitfall #9: mask=0 dispatches to role 12's first cell (0, 0)
 	# for side-scroller; single-grid mask=0 is NOT erase.
