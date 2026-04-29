@@ -235,20 +235,23 @@ Added 2026-04-29 from a user-supplied comparative research packet. These are Pha
 
 ### Variation, Top Tiles, Non-Rotating Spillover
 
-- **VAR-01**: Y-axis variation via deterministic per-cell hash + `TileData.probability` weights (was original v0.2; pushed because layout library landed first). **DESIGN-COUPLED with MULTITERR-01 and VAR-PIXEL-01 below** — Y-axis-as-variation and Y-axis-as-terrain compete for the same axis; future brainstorm must resolve all three together (alternatives include packing variation into `alternative_tile`, multiple atlas sources per terrain, or explicit per-layout declaration of which Y-axis interpretation applies).
+- **VAR-01**: Variation via deterministic per-cell hash + `TileData.probability` weights (was original v0.2; pushed because layout library landed first). **DESIGN-COUPLED with MULTITERR-02/03 and VAR-PIXEL-01 below** — variation, terrain banks, atlas sources, and `alternative_tile` packing all compete for the final `set_cell(source_id, atlas_coords, alternative_tile)` tuple. The 2026-04-29 multi-terrain research supersedes the older "Y-axis as terrain" default; prefer `TileData` terrain metadata for terrain identity so Y can remain available to layouts that use it for variation banks.
 - **VAR-PIXEL-01**: Variation-bank deterministic pick for PixelLab layouts — when a PixelLab atlas has multiple cells mapped to the same mask, pick one keyed on `(coord, variation_seed)` per PITFALLS.md §2 hash recipe. Moved here 2026-04-26 from Phase 3.5 active scope when `variation_seed` was deleted from `PentaTileAtlasContract` (which itself was deleted; see LAYER-01..03). Phase 3.5's PIXLAB-03 ships first-cell pick only; bank pick lands when variation work is reopened.
 - **TOP-01**: Top-tile support — designated top-edge visuals for platformer caps (was original v0.2; pushed; needs design discussion against the new layout shape). Research-triage constraint: top tiles must be explicit per-mask/per-layout data. Do not infer them from "tile below is filled" or any platformer-specific heuristic.
 - **NONROT-01**: Any "non-rotating" features not covered by DualGrid16 / Wang2Corner / Wang2Edge layouts (most non-rotating cases are now solved).
 
 ### Multi-Terrain in One Tileset (MULTITERR)
 
-Backlog item added 2026-04-26 from Phase 2.1 brainstorm. Goal: support multiple terrain types in a single atlas where each terrain auto-tiles independently and synthesized "extra" tiles (e.g. OppositeCorners for Penta) are appended per-terrain without collision. Distinct from TERRAIN-01 (multi-terrain *transitions* — grass-to-dirt blending); MULTITERR is "each terrain abuts the others as if they were `empty`, no transitions."
+Backlog item added 2026-04-26 from Phase 2.1 brainstorm and superseded 2026-04-29 by `.planning/phases/08-research-triage-v0-3-scope-selection/08-MULTI-TERRAIN-RESEARCH.md`. Goal: support multiple terrain types and multiple atlas sources in one `TileSet` and one public `PentaTileMapLayer`, while preserving native `set_cell()` painting. Corrected design: use Godot `TileData` terrain metadata as the authoring/indexing language, but keep PentaTile's `_update_cells()` dispatcher as the solver. Do not call Godot's built-in terrain solver for generated visuals.
 
-- **MULTITERR-01**: Strip layouts (Single-Tile, Penta) interpret atlas Y-axis as terrain. Source `4 × N` (Penta FOUR) or `1 × N` (Single-Tile / Penta ONE) → synthesized output `5 × N`. Each row is one terrain. `compute_mask` parameterized by `terrain_id`; samples neighbors with the rule "is neighbor's terrain == terrain_id?" → independent per-terrain masks. **Design-coupled with VAR-01 above** — Y-axis interpretation conflict must be resolved together.
-- **MULTITERR-02**: Block layouts (DualGrid16, Wang2Edge, Wang2Corner, Blob47*, PixelLab) need a different multi-terrain mechanism since each terrain occupies a 2D sub-block. Likely: multiple atlas sources, with `AtlasSlot` gaining a `source_id` field. Distinct architectural fork from MULTITERR-01.
-- **MULTITERR-03**: Painting API documented for multi-terrain — user picks the terrain row when calling `set_cell` (atlas_coords.y = terrain_id). Demo runtime painter gains a hotkey to switch terrains.
-- **MULTITERR-04**: `update_configuration_warnings()` flags out-of-range `terrain_y` values painted in the scene if the source atlas has fewer rows than referenced.
-- **MULTITERR-05**: Boundary semantics: where terrain A meets terrain B, both render their own edge facing the other (each terrain treats the other as `empty`). No transition tiles. Hard boundary. Visually limited but architecturally clean. Transition tile support is TERRAIN-01.
+- **MULTITERR-01**: Terrain-aware dispatch samples `TileData.terrain_set` and `TileData.terrain` from painted logic cells. Empty cells remain terrain `-1`. Painted cells without terrain metadata produce a configuration warning or documented fallback.
+- **MULTITERR-02**: Build a transient `TerrainTileIndex` from the active `TileSet`: scan all `TileSetAtlasSource` sources when `atlas_source_id == -1`, all atlas tiles, and all alternatives; record `source_id`, `atlas_coords`, packed `alternative_tile`, terrain set/id, peering bits, and `TileData.probability`. No persistent coordinate cache.
+- **MULTITERR-03**: Generated output can route to the candidate's `source_id`; the current global-source assumption (`_resolve_source_id()` + `PentaTileAtlasSlot` with no `source_id`) must be removed or bypassed for terrain mode. Explicit `atlas_source_id >= 0` becomes a scan filter, not a forced output source.
+- **MULTITERR-04**: Single-grid layouts ship first (Wang2Edge, Wang2Corner, Min3x3, Blob47Godot; PixelLab after variation reopens). Their terrain signature is center terrain plus layout-specific neighbor/peering terrain data. This is the best fit for Godot built-in terrain metadata in one layer.
+- **MULTITERR-05**: Dual-grid layouts ship second using a TileMapDual-style four-corner terrain signature for each display cell. Exact authored candidates are preferred; missing candidates warn and fall back explicitly. Document the art-cost limit: theoretical exact state space grows toward `N^4` for `N` terrains before symmetry/fallbacks.
+- **MULTITERR-06**: Penta layouts support per-terrain banks first. Each terrain can have its own Penta strip or atlas source, and existing Penta synthesis runs per bank. True grass-to-dirt-style Penta transition art is TERRAIN-01, not baseline MULTITERR.
+- **MULTITERR-07**: Godot built-in terrain metadata is input only. PentaTile does not call `set_cells_terrain_connect()` / `set_cells_terrain_path()` for generated output because those functions mutate cells/neighbors under Godot's solver, not PentaTile's layout library.
+- **MULTITERR-08**: Visual UAT composes rendered output, not just dispatch tables, across at least 2 terrains, 3 terrains, multiple atlas sources, alternatives/transforms, and the standard pattern matrix. Include rebuild determinism checks so weighted candidates do not shimmer.
 
 ### Atlas Tooling
 
@@ -268,7 +271,7 @@ Backlog item added 2026-04-26 from Phase 2.1 brainstorm. Goal: support multiple 
 
 ### Multi-Terrain
 
-- **TERRAIN-01**: Outer transition tile support — terrain-to-terrain transitions (grass→dirt etc.).
+- **TERRAIN-01**: Outer transition tile support — terrain-to-terrain transitions (grass→dirt etc.). Research update 2026-04-29: implement only after MULTITERR's candidate index exists. This requires authored pair/tuple transition candidates via Godot peering metadata or an explicit layout table; do not smuggle in a global Better Terrain-style solver as part of the baseline.
 
 ### Performance
 

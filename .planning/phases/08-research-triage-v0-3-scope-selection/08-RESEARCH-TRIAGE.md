@@ -30,9 +30,13 @@ Accepted as useful:
 - Docs and examples matter more than a large editor UI. Phase 7's MkDocs + LLM-readable docs pipeline is the right place for discoverability.
 - Performance work should start with benchmarks and limits, not caches. PERF-02 is the correct gate before optimization.
 
+Corrected by focused follow-up:
+
+- Multi-terrain was initially firewalled too broadly. The refined position is in `08-MULTI-TERRAIN-RESEARCH.md`: PentaTile may read Godot `TileData` terrain metadata as authoring/indexing input, but must keep its own deterministic `_update_cells()` solver and must not delegate generated visuals to Godot's terrain painter.
+
 Rejected or downgraded:
 
-- Global constraint solver/backtracking: Better Terrain territory. It conflicts with PentaTile's binary-layout simplicity and would erase the "small hot path" identity.
+- Global constraint solver/backtracking: Better Terrain territory. It conflicts with PentaTile's small hot-path identity unless the project is deliberately renegotiated.
 - Grid agnosticism/hex/isometric: TileMapDual territory. Valid competitor feature, but not a PentaTile differentiator right now.
 - Terrains dock/template wizard/bulk terrain-bit editor: TileBitTools/Better Terrain territory. PentaTile avoids terrain peering metadata and heavy EditorInspectorPlugin polish.
 - JSON metadata/entity spawning/scriptable rule tiles: LDtk/Unity/engine-feature territory. Godot already has TileSet custom data and scene tiles; PentaTile should not become a world database.
@@ -49,4 +53,4 @@ Phase 8 should not implement gameplay features. It should produce a verified v0.
    - **Variation + PixelLab banks + top tiles** if the user wants visible art-quality gains.
    - **Tilesetter layouts + converter/PentaBake spike** if the user wants ecosystem/import coverage.
    - **Editor preview + docs/distribution polish** if the user wants adoption UX.
-4. A scope firewall that keeps multi-terrain transitions, rule solvers, hex/iso, and metadata systems out unless the project identity is intentionally renegotiated.
+4. A scope firewall that keeps Godot terrain-solver delegation, broad rule solvers, hex/iso, and world-metadata systems out unless the project identity is intentionally renegotiated. Godot terrain metadata reads are allowed as the input format for a focused MULTITERR implementation.

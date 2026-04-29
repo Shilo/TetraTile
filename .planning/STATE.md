@@ -4,8 +4,8 @@ milestone: v0.2.0
 milestone_name: milestone
 status: ready_to_plan
 stopped_at: v0.2.0 SHIPPED
-last_updated: "2026-04-29T22:16:13Z"
-last_activity: 2026-04-29 -- Phase 8 added from research triage
+last_updated: "2026-04-29T22:31:41Z"
+last_activity: 2026-04-29 -- Multi-terrain terrain-metadata research added
 progress:
   total_phases: 10
   completed_phases: 7
@@ -33,6 +33,8 @@ Last activity: 2026-04-29
 > Phase 7 (Repo Restructure: Extract Tests + MkDocs Site + LLM-Friendly Docs Pipeline) added 2026-04-29 as a v0.2.0 follow-up. Phase 6 (editor line/rect/bucket preview) remains far-future deferred. Next planning step: `/gsd-plan-phase 7`. MkDocs out-of-scope reversal reconciled in PROJECT.md + REQUIREMENTS.md (TOOL-04 promoted from v2 backlog into Phase 7 scope).
 
 > Phase 8 (Research Triage + v0.3 Scope Selection) added 2026-04-29 from user-supplied competitor research. It verifies claims, accepts identity-compatible improvements, rejects off-mission "ultimate terrain framework" scope, and recommends the next v0.3 package. Initial triage artifact: `.planning/phases/08-research-triage-v0-3-scope-selection/08-RESEARCH-TRIAGE.md`. Current next planning step remains `/gsd-plan-phase 7` by roadmap order; Phase 8 follows as the v0.3 selection gate.
+
+> Focused multi-terrain research added 2026-04-29 at `.planning/phases/08-research-triage-v0-3-scope-selection/08-MULTI-TERRAIN-RESEARCH.md`. Outcome: one public `PentaTileMapLayer` / one `TileSet` is feasible if Godot `TileData` terrain metadata is treated as authoring/indexing input and PentaTile keeps its own deterministic solver. REQUIREMENTS.md MULTITERR-01..08 supersedes the old Y-axis-as-terrain sketch. The hard firewall is now "do not call Godot's terrain solver for generated visuals," not "never read terrain metadata."
 
 > Phase 3.5 closed 2026-04-29 with full scope: PIXLAB-01..04 Complete. PentaTileLayoutPixelLabTopDown + PentaTileLayoutPixelLabSideScroller ship as single-grid corner-mask twin subclasses with cached first-cell dispatch per D-89; 2 new bundled greybox PNGs (8×8 atlas, 256×256) co-located under addons/penta_tile/layouts/; 2 new tests (pixellab_first_cell_test + pixellab_visual_regression_test) green; matrix grew to 8 layouts × 18 patterns = 144 combos; bitmask_bounds_test extended; run_tests.ps1 lists 17 tests. VAR-PIXEL-01 (variation-bank pick) preserved in v2 backlog per D-91; ROADMAP retitled to drop the "+ Variation-Seed Wiring" misnomer.
 
@@ -100,6 +102,7 @@ Progress: [███████---] 70%
 ### Roadmap Evolution
 
 - 2026-04-29 (post-v0.2.0 research triage): **Phase 8 added — Research Triage + v0.3 Scope Selection.** User supplied comparative research spanning PentaTile, TileMapDual, TileBitTools, Better Terrain, Godot built-in, Unity, Tiled, RPG Maker, and procedural/GPU autotiling. Verification against primary sources found useful signals (deterministic variation, PixelLab bank pick, top tiles, Tilesetter follow-up, docs/distribution, benchmark-first performance) and stale/off-identity claims (PentaTile already has dual-grid support; global solvers, terrain docks, hex/iso, persistent caches, metadata/entity systems, GPU infinite worlds are not default scope). Added TRIAGE-01..06 requirements, Phase 8 ROADMAP details, and `08-RESEARCH-TRIAGE.md`.
+- 2026-04-29 (focused multi-terrain research): **MULTITERR backlog reshaped.** Subagent + primary-source verification found the optimal path: use Godot `TileData.terrain_set` / `terrain` / peering bits as the authoring language, scan all atlas sources and alternatives into a transient candidate index, then keep PentaTile's own `_update_cells()` solver and generated `set_cell()` output. Single-grid layouts should land first; dual-grid gets TileMapDual-style four-corner terrain signatures second; Penta gets terrain banks first. Added `08-MULTI-TERRAIN-RESEARCH.md`; REQUIREMENTS.md now tracks MULTITERR-01..08 instead of the older Y-axis-as-terrain sketch; PROJECT.md identity guardrail now rejects Godot solver delegation rather than metadata reads.
 - 2026-04-26: Phase 2.1 inserted after Phase 2 (single-tile-layout) — ships `PentaTileLayoutSingleTile`. Adds 5 requirements (SINGLE-01..05). Companion artifact: `.planning/research/layouts/RPG_MAKER.md` audits the RPG Maker family and recommends offline-importer path for v0.3+ — out of scope for v0.2.0.
 - 2026-04-26 (later): **Architectural pivot — overlay-layer removal + unified Tetra synthesis.** The Phase 2.1 brainstorm session reframed Phase 2's Penta5 work. Instead of shipping `PentaTileLayoutPenta5Horizontal`/`Vertical` as separate classes (CONTEXT.md D-28..D-46), the existing Tetra layouts gain load-time synthesis of the 5th OppositeCorners archetype from the OuterCorner tile. The runtime `_overlay_layer` is **deleted entirely** — every v0.2 layout renders via single-layer 5-archetype dispatch. Tetra layouts auto-detect 4-vs-5 source tiles. Single-Tile (Phase 2.1) updated to slice into 5 archetypes (not 4). Adds 6 new requirements (PENTA-SYNTH-01..06), supersedes Phase 2's planned TETRA5-* IDs (which never landed in REQUIREMENTS.md). Multi-terrain Y-axis convention added to v2 backlog (MULTITERR-01..05) with explicit design-coupling note to VAR-01 (variation). Full supersession notice in `.planning/phases/02-native-layouts/02-DISCUSSION-LOG.md`. Coverage 50 → 56 requirements.
 - 2026-04-26 (later): **User policy update — breaking changes always allowed.** Recorded as feedback memory + CLAUDE.md "Breaking Changes Policy (HARD RULE)" + PROJECT.md constraint update. Never write backwards-compat shims. Never defer features for compat reasons. CHANGELOG entries are the only acceptable compat work.
@@ -226,7 +229,7 @@ Items acknowledged and carried forward as v2 requirements (see REQUIREMENTS.md v
 | RPG Maker | Subtile compositor for A2/A4 (RPGM-01/02) | v0.3+ | 2026-04-25 |
 | External Editors | Tiled `.tsx` / LDtk `.ldtk` rule importers (IMPORT-01/02) | v0.3+ | 2026-04-25 |
 | Tooling | PentaBake / Wang→PentaTile converter (TOOL-01/02) | v2 | 2026-04-25 |
-| Multi-terrain | Outer transition tiles (TERRAIN-01) | v2 | 2026-04-25 |
+| Multi-terrain | Terrain metadata dispatch in one TileSet/public layer (MULTITERR-01..08) + outer transition tiles (TERRAIN-01) | v2 / research-backed | 2026-04-29 |
 | Performance | Shader fallback / large-map benchmarks (PERF-01/02) | v2 | 2026-04-25 |
 | Distribution | Asset Library / GUT test suite (DIST-01/02) | v2 | 2026-04-25 |
 | Research Triage | v0.3 scope selection and off-identity recommendation firewall (TRIAGE-01..06) | Phase 8 | 2026-04-29 |

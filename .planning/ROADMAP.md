@@ -238,7 +238,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 3.5 → 4 → 5 → 6 → 7 �
 | 5. Demo Refresh + Documentation + Release | 5/5 | **Complete.** v0.2.0 shipped end-to-end via the release workflow on 2026-04-29. 8-instance demo grid + 4 README sections + accumulated CHANGELOG + 15 spec corrections (SC-A..D + 1 follow-up) + identity audit (per D-05-11 — SHIP outcome: clean hot path + 16/16 anti-patterns absent). 17 automated tests green; release workflow run 25131034672 (44s) published `penta_tile-v0.2.0.zip` (208024 bytes) to https://github.com/Shilo/PentaTile/releases/tag/v0.2.0. | 2026-04-29 |
 | 6. Editor Line/Rect/Bucket Tool Preview During Drag | 0/0 | Deferred / not planned. Known editor-preview UX issue captured for later. | — |
 | 7. Repo Restructure: Extract Tests + MkDocs Site + LLM-Friendly Docs Pipeline | 0/0 | Ready to plan. v0.2.0 follow-up docs/repo hygiene phase. | — |
-| 8. Research Triage + v0.3 Scope Selection | 0/0 | Added from supplied research. Ready to plan after Phase 7 by roadmap order; independent of Phase 6 implementation. | — |
+| 8. Research Triage + v0.3 Scope Selection | 0/0 | Added from supplied research. Includes focused multi-terrain research accepting Godot `TileData` metadata as input while rejecting Godot terrain-solver delegation. Ready to plan after Phase 7 by roadmap order; independent of Phase 6 implementation. | — |
 
 ## Coverage
 
@@ -278,7 +278,7 @@ The PROJECT.md identity constraint — hot-path minimalism + anti-pattern absenc
 
 Per PROJECT.md, the quality bar is "works in my game" — visual regression on the demo is the primary verification mechanism, not a formal test suite. Demo-scale (~100–1k cells) is the only perf target; success criteria deliberately do NOT gate on perf.
 
-Architectural anti-patterns explicitly NOT introduced (per `.planning/research/layouts/MASK_UNIFICATION.md` and the TileBitTools audit): no `EditorInspectorPlugin` polish, no Godot terrain peering-bit integration, no parallel painting API, no persistent coordinate cache, no watcher / signal-fanout systems, no multi-terrain transitions, no quarter-tile compositor.
+Architectural anti-patterns explicitly NOT introduced (per `.planning/research/layouts/MASK_UNIFICATION.md`, the TileBitTools audit, and the 2026-04-29 multi-terrain research): no `EditorInspectorPlugin` polish, no Godot terrain-solver delegation, no parallel painting API, no persistent coordinate cache, no watcher / signal-fanout systems, no unscoped multi-terrain transition solver, no quarter-tile compositor. Godot `TileData` terrain metadata may be read as input in a future focused MULTITERR phase.
 
 ### Phase 6: Editor Line/Rect/Bucket Tool Preview During Drag
 
@@ -337,13 +337,13 @@ Plans:
 
 **Depends on:** Phase 5 for the shipped v0.2.0 surface. Phase 7 docs may inform the final communication shape, but Phase 8 is independent of Phase 6 editor-preview implementation.
 
-**Background:** Initial triage artifact: `.planning/phases/08-research-triage-v0-3-scope-selection/08-RESEARCH-TRIAGE.md`. The research usefully reinforces deterministic variation, PixelLab variation-bank pick, explicit top tiles, Tilesetter follow-up, authoring/converter tooling, docs, and benchmark-first performance work. It also contains stale or off-identity recommendations: PentaTile already has dual-grid layouts; global constraint solvers, terrain-rule docks, persistent caches, multi-terrain transitions, hex/iso support, JSON metadata/entity spawning, and GPU infinite-world shaders are not v0.3 defaults.
+**Background:** Initial triage artifact: `.planning/phases/08-research-triage-v0-3-scope-selection/08-RESEARCH-TRIAGE.md`. Focused terrain artifact: `.planning/phases/08-research-triage-v0-3-scope-selection/08-MULTI-TERRAIN-RESEARCH.md`. The broad research usefully reinforces deterministic variation, PixelLab variation-bank pick, explicit top tiles, Tilesetter follow-up, authoring/converter tooling, docs, and benchmark-first performance work. It also contains stale or off-identity recommendations: PentaTile already has dual-grid layouts; global constraint solvers, terrain-rule docks, persistent caches, hex/iso support, JSON metadata/entity spawning, and GPU infinite-world shaders are not v0.3 defaults. Multi-terrain support is no longer blanket-rejected: the accepted research shape is to read Godot `TileData` terrain metadata as authoring/indexing input while PentaTile keeps its own deterministic layout solver and generated `set_cell()` output.
 
 **Success Criteria (draft, refine when planning):**
 1. **Verified claims table:** Each accepted competitor claim cites a primary source or local artifact. Stale claims from the supplied research are corrected, especially anything implying PentaTile lacks dual-grid support or lacks v0.2.0 release outputs.
 2. **Accept/reject matrix:** Every major recommendation in the supplied research is dispositioned as `accept`, `already covered`, `defer`, or `reject`, with identity-guardrail rationale.
 3. **v0.3 candidate matrix:** Candidate work is ranked by user value, implementation risk, dependency coupling, and identity fit. At minimum, evaluate `VAR-01`, `VAR-PIXEL-01`, `TOP-01`, `TBT-01/02-DEFERRED`, `TOOL-01/02`, `PERF-02`, `DIST-01`, and Phase 6/7 follow-ups.
-4. **Scope firewall:** Explicitly reject or quarantine global solvers/backtracking, Godot terrain-peering integration, Terrains dock/editor-wizard scope, persistent caches, scriptable rule engines, metadata/entity-spawning systems, grid-agnostic hex/iso support, and GPU/procedural world generation unless the project identity is intentionally renegotiated.
+4. **Scope firewall:** Explicitly reject or quarantine global solvers/backtracking, Godot's terrain solver as PentaTile's renderer, Terrains dock/editor-wizard scope, persistent coordinate caches, scriptable rule engines, metadata/entity-spawning systems, grid-agnostic hex/iso support, and GPU/procedural world generation unless the project identity is intentionally renegotiated. Godot terrain metadata interop is allowed as input when PentaTile remains the solver.
 5. **Backlog cleanup:** Update REQUIREMENTS.md and STATE.md with any new un-defer triggers, dependencies, or "do not pursue" notes discovered during triage. No backwards-compat shims, version fields, schema markers, or speculative extension points.
 6. **Next-step recommendation:** Produce one recommended v0.3 package and two alternates, with the exact `/gsd-plan-phase` target that should be run next.
 
