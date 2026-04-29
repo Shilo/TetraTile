@@ -1,20 +1,38 @@
-[gd_scene format=4 uid="uid://bkn2k133opvua"]
+[gd_scene format=4 uid="uid://udxugm8223jb"]
 
 [ext_resource type="Script" uid="uid://cqqaiq1qjwgwg" path="res://addons/penta_tile/demo/demo_player.gd" id="3_ojcmv"]
-[ext_resource type="TileSet" uid="uid://dyv1io31sbual" path="res://addons/penta_tile/demo/penta_tile_ground.tres" id="4_0ou8x"]
-[ext_resource type="Script" uid="uid://du0uvrtc7fw14" path="res://addons/penta_tile/penta_tile_map_layer.gd" id="5_0ou8x"]
+[ext_resource type="Texture2D" uid="uid://dv5cnpb3nybxo" path="res://addons/penta_tile/layouts/penta_tile_layout_penta/five_horizontal.png" id="4_0ou8x"]
 [ext_resource type="Script" uid="uid://dyv8ickdvbeqv" path="res://addons/penta_tile/demo/demo_runtime_painter.gd" id="5_81n6k"]
-[ext_resource type="Texture2D" uid="uid://dv5cnpb3nybxo" path="res://addons/penta_tile/layouts/penta_tile_layout_penta/five_horizontal.png" id="6_fuyv7"]
+[ext_resource type="Script" uid="uid://du0uvrtc7fw14" path="res://addons/penta_tile/penta_tile_map_layer.gd" id="5_fuyv7"]
+[ext_resource type="Script" uid="uid://cv4klgob32b1" path="res://addons/penta_tile/layouts/penta_tile_layout_penta.gd" id="6_qyqi1"]
 [ext_resource type="Texture2D" uid="uid://briuxshmssl3y" path="res://addons/penta_tile/brand/penta_tile_icon.png" id="6_ywdfk"]
-[ext_resource type="Script" uid="uid://cv4klgob32b1" path="res://addons/penta_tile/layouts/penta_tile_layout_penta.gd" id="7_qyqi1"]
+[ext_resource type="TileSet" uid="uid://dyv1io31sbual" path="res://addons/penta_tile/demo/penta_tile_ground.tres" id="7_2ilat"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_yi4p3"]
 radius = 7.0
 
-[sub_resource type="Resource" id="Resource_0ou8x"]
-script = ExtResource("7_qyqi1")
-bitmask_template = ExtResource("6_fuyv7")
-metadata/_custom_type_script = "uid://cv4klgob32b1"
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0ou8x"]
+texture = ExtResource("4_0ou8x")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+4:0/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_fuyv7"]
+tile_size = Vector2i(32, 32)
+sources/0 = SubResource("TileSetAtlasSource_0ou8x")
+
+[sub_resource type="Resource" id="Resource_qyqi1"]
+script = ExtResource("6_qyqi1")
+tile_count = 5
+bitmask_template = ExtResource("4_0ou8x")
+
+[sub_resource type="Resource" id="Resource_2ilat"]
+script = ExtResource("6_qyqi1")
+tile_count = 5
+bitmask_template = ExtResource("4_0ou8x")
 
 [node name="PentaTileDemo" type="Node2D" unique_id=1353073738]
 script = ExtResource("5_81n6k")
@@ -37,11 +55,20 @@ shape = SubResource("CircleShape2D_yi4p3")
 position = Vector2(160, 96)
 zoom = Vector2(3, 3)
 
-[node name="PentaTileMapLayer" type="TileMapLayer" parent="." unique_id=1360971558]
+[node name="BitmaskDemo_BundledGreybox" type="TileMapLayer" parent="." unique_id=1643281638]
 self_modulate = Color(1, 1, 1, 0)
-tile_map_data = PackedByteArray("AAAKAAYAAAABAAAAAAAJAAYAAAABAAAAAAAJAAcAAAABAAAAAAAGAAcAAAABAAAAAAAJAAMAAAABAAAAAAAKAAMAAAABAAAAAAAKAAQAAAABAAAAAAAJAAQAAAABAAAAAAAPAAQAAAABAAAAAAAOAAQAAAABAAAAAAANAAQAAAABAAAAAAANAAUAAAABAAAAAAANAAYAAAABAAAAAAAOAAYAAAABAAAAAAAPAAYAAAABAAAAAAAPAAUAAAABAAAAAAANAAkAAAABAAAAAAANAAoAAAABAAAAAAAOAAoAAAABAAAAAAAHAAoAAAABAAAAAAAGAAoAAAABAAAAAAAEAAcAAAABAAAAAAAEAAgAAAABAAAAAAA=")
-tile_set = ExtResource("4_0ou8x")
+tile_map_data = PackedByteArray("AAAFAAAAAAAAAAAAAAALAAAAAAAAAAAAAAAPAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAFAAUAAAAAAAAAAAAFAAYAAAAAAAAAAAALAAUAAAAAAAAAAAAKAAYAAAAAAAAAAAAPAAUAAAAAAAAAAAAQAAUAAAAAAAAAAAAPAAYAAAAAAAAAAAABAAsAAAAAAAAAAAAFAAoAAAAAAAAAAAAGAAsAAAAAAAAAAAALAAoAAAAAAAAAAAALAAsAAAAAAAAAAAAPAAoAAAAAAAAAAAAQAAoAAAAAAAAAAAAQAAsAAAAAAAAAAAAAABAAAAAAAAAAAAABABAAAAAAAAAAAAAFAA8AAAAAAAAAAAAFABAAAAAAAAAAAAAGABAAAAAAAAAAAAALAA8AAAAAAAAAAAAKABAAAAAAAAAAAAALABAAAAAAAAAAAAAPAA8AAAAAAAAAAAAQAA8AAAAAAAAAAAAPABAAAAAAAAAAAAAQABAAAAAAAAAAAAA=")
+tile_set = SubResource("TileSet_fuyv7")
 collision_enabled = false
-script = ExtResource("5_0ou8x")
-layout = SubResource("Resource_0ou8x")
-metadata/_custom_type_script = "uid://du0uvrtc7fw14"
+script = ExtResource("5_fuyv7")
+layout = SubResource("Resource_qyqi1")
+_tile_set_is_fallback = true
+
+[node name="BitmaskDemo_GroundTres" type="TileMapLayer" parent="." unique_id=896546137]
+self_modulate = Color(1, 1, 1, 0)
+position = Vector2(0, 800)
+tile_map_data = PackedByteArray("AAAFAAAAAAAAAAAAAAALAAAAAAAAAAAAAAAPAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAFAAUAAAAAAAAAAAAFAAYAAAAAAAAAAAALAAUAAAAAAAAAAAAKAAYAAAAAAAAAAAAPAAUAAAAAAAAAAAAQAAUAAAAAAAAAAAAPAAYAAAAAAAAAAAABAAsAAAAAAAAAAAAFAAoAAAAAAAAAAAAGAAsAAAAAAAAAAAALAAoAAAAAAAAAAAALAAsAAAAAAAAAAAAPAAoAAAAAAAAAAAAQAAoAAAAAAAAAAAAQAAsAAAAAAAAAAAAAABAAAAAAAAAAAAABABAAAAAAAAAAAAAFAA8AAAAAAAAAAAAFABAAAAAAAAAAAAAGABAAAAAAAAAAAAALAA8AAAAAAAAAAAAKABAAAAAAAAAAAAALABAAAAAAAAAAAAAPAA8AAAAAAAAAAAAQAA8AAAAAAAAAAAAPABAAAAAAAAAAAAAQABAAAAAAAAAAAAA=")
+tile_set = ExtResource("7_2ilat")
+collision_enabled = false
+script = ExtResource("5_fuyv7")
+layout = SubResource("Resource_2ilat")
