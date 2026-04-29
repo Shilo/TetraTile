@@ -349,10 +349,10 @@ Which phases cover which requirements. Empty initially — populated by `gsd-roa
 | TBT-02 | 3 → v0.3+ | Deferred to v0.3+ per D-86 option (b) — Plan 05 SKIPPED 2026-04-29 (same reason as TBT-01). Tracked as `TBT-02-DEFERRED` in v2 Requirements. |
 | TBT-03 | 3 | Complete (Plan 04 / commits `63c3aa0` `fad4054` `c69f0d9`: PentaTileLayoutBlob47Godot ships with 7×7 atlas + algorithmic 256→47 collapse rule + 47-entry _MASK_TO_ATLAS dict + collapse test green; matrix integration in Plan 06 / `9d8aa3e`) |
 | TBT-04 | 3 | Complete (Plan 03 / commit `fcfb9e4`: README "External Resources" section's TileBitTools design-inspiration footnote ships; ATTRIBUTION.md NOT created per D-73) |
-| PIXLAB-01 | 3.5 | Pending |
-| PIXLAB-02 | 3.5 | Pending |
-| PIXLAB-03 | 3.5 | Pending |
-| PIXLAB-04 | 3.5 | Pending |
+| PIXLAB-01 | 3.5 | Complete (Plan 02 / `18ef118`: PentaTileLayoutPixelLabTopDown ships with verbatim 64-int _CELL_TO_ROLE table from tileset_transform.lua:17-26 + locked role-to-mask bijection + cached _first_cell_by_mask first-cell row-major pick per D-89; D-104 mask=0 → role 12 → cell (2, 2); is_dual_grid=false; 8x8 fallback grid) |
+| PIXLAB-02 | 3.5 | Complete (Plan 03 / `2a20bf9`: PentaTileLayoutPixelLabSideScroller ships with verbatim 64-int _CELL_TO_ROLE table from tileset_transform.lua:28-36 tileset_output_side + duplicated role-to-mask bijection per D-98; D-104 mask=0 → role 12 → cell (0, 0); same cache + dispatch shape as top-down) |
+| PIXLAB-03 | 3.5 | Complete (Plan 04 / `5a02d8d` `cb740b9` `9f74a87`: pixellab_first_cell_test enumerates all 16 masks for both layouts and asserts hand-derived first-cell coords + transform_flags == 0 invariant per D-90; verify-the-regression cycle confirmed (17 failures when _init_cache stashed); matrix in comprehensive_bitmask_test extended to 8 layouts × 18 patterns = 144 combos; bitmask_bounds_test extended with 8×8 PIXLAB silhouette helpers via D-101 option B solid 32×32) |
+| PIXLAB-04 | 3.5 | Complete (Plan 05 / `94774a4` `aff6f35` `6687eb4`: pixellab_visual_regression_test composes rendered canvas via blit + transform helper against checked-in spike-003 PixelLab sample fixtures (128×128, 8×8 atlas at 16px); asserts non-empty cells + canvas-size match + bit-stable rebuild via direct PackedByteArray equality; D-102 case 3 closed) |
 | PREVIEW-01 | 2 | Complete (`template_image` renamed `bitmask_template` in Wave 1) |
 | PREVIEW-02 | 2 | Complete (dual-role `bitmask_template` serves preview AND fallback codegen) |
 | PREVIEW-03 | 4 | Pending |
@@ -378,6 +378,7 @@ Which phases cover which requirements. Empty initially — populated by `gsd-roa
 - Mapped to phases: 58 (after this update)
 - Unmapped: 0
 - 2026-04-29 D-86 outcome (Plan 05 SKIPPED): TBT-01, TBT-02, and the Tilesetter half of TEMPLATE-02 were originally mapped to Phase 3. Per the user's option-(b) decision, all three deferred to v0.3+ (tracked as TBT-01-DEFERRED / TBT-02-DEFERRED / TEMPLATE-02-DEFERRED in v2 Requirements). Phase 3 still owns these IDs in the Traceability table but their Status reads "Deferred" / "Partial" rather than "Complete." Phase 3 effective coverage: TBT-03 + TBT-04 + DOC-05 + Blob47Godot half of TEMPLATE-02 (4 of 6 originally-planned Phase 3 IDs).
+- 2026-04-29 Phase 3.5 closeout (Plan 06): PIXLAB-01..04 flipped to Complete. VAR-PIXEL-01 explicitly stays in v2 Requirements per D-89/D-90/D-91 — bank-pick wiring deferred until variation work reopens (design-coupled with VAR-01 + MULTITERR-01). The phase title "+ Variation-Seed Wiring" was a misnomer in v0.2 — no `variation_seed` property is exposed; layouts ship with first-cell pick only. Coverage counter unchanged: 58 v1 reqs (PIXLAB-01..04 were already counted as v1; the change is Status not membership).
 - 2026-04-26 architectural pivots (locked after fourth iteration):
   - **Slot ordering**: `0=IsolatedCell, 1=Fill, 2=Border, 3=InnerCorner, 4=OppositeCorners`. OuterCorner is implicit (synthesized from slot 0's corners across all modes).
   - **Five progressive modes**: ONE → TWO → THREE → FOUR → FIVE, each adding one explicit slot. AUTO detects from atlas axis size (uniform across strips); AUTO_STRIP detects per-strip (strips can differ).
