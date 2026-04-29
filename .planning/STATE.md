@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.2.0
 milestone_name: milestone
-status: phase_complete
-stopped_at: "Phase 4 closed (PREVIEW-03/04 Complete; 4 closeout artifacts committed; ROADMAP [x]; Codex pass deferred per quota wall)"
-last_updated: "2026-04-29T17:30:00.000Z"
+status: planning
+stopped_at: Phase 5 context gathered
+last_updated: "2026-04-29T18:23:28.169Z"
 last_activity: 2026-04-29 -- Phase 4 closed
 progress:
   total_phases: 8
@@ -212,9 +212,9 @@ Items acknowledged and carried forward as v2 requirements (see REQUIREMENTS.md v
 
 ## Session Continuity
 
-Last session: 2026-04-29T17:30:00.000Z
-Stopped at: Phase 4 closed (PREVIEW-03/04 Complete; 4 closeout artifacts committed; ROADMAP [x]; Codex pass deferred per quota wall)
-Resume file: None
+Last session: --stopped-at
+Stopped at: Phase 5 context gathered
+Resume file: --resume-file
 
 **Completed Phase:** 01 (Contract Skeleton + Penta Layouts) — 5/5 plans, 14/14 requirements, 26/26 automated tests PASS — 2026-04-26
 **Completed Phase:** 01.1 (PentaTile Rename + Penta Codename Establishment) — 3/3 plans, 0 formal REQ-IDs (rename phase), demo loads cleanly under new name, git remote tracks PentaTile origin — 2026-04-26
