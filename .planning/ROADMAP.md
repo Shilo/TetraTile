@@ -163,7 +163,7 @@ Plans:
 - [x] 03.5-02-PLAN.md — Wave 2: PentaTileLayoutPixelLabTopDown subclass (PIXLAB-01)
 - [x] 03.5-03-PLAN.md — Wave 2: PentaTileLayoutPixelLabSideScroller subclass (PIXLAB-02)
 - [x] 03.5-04-PLAN.md — Wave 3: pixellab_first_cell_test + comprehensive_bitmask_test matrix extension to 8×18=144 + bitmask_bounds_test 8×8 PIXLAB extension + run_tests.ps1 (PIXLAB-03) — 2026-04-29
-- [ ] 03.5-05-PLAN.md — Wave 3: pixellab_visual_regression_test composed-canvas + checked-in spike-003 PixelLab samples + run_tests.ps1 (PIXLAB-04)
+- [x] 03.5-05-PLAN.md — Wave 4: pixellab_visual_regression_test composed-canvas + checked-in spike-003 PixelLab samples + run_tests.ps1 (PIXLAB-04) — 2026-04-29
 - [ ] 03.5-06-PLAN.md — Wave 4: closeout — REQUIREMENTS Traceability + ROADMAP retitle + ROADMAP [x] + STATE.md cumulative LOC + Roadmap Evolution + VAR-PIXEL-01 deferral preservation
 
 ### Phase 4: Fallback Routing
@@ -212,7 +212,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 3.5 → 4 → 5
 | 1.1. PentaTile Rename + Penta Codename Establishment | 3/3 | Complete | 2026-04-26 |
 | 2. Native Layouts + Architectural Simplification | 7/7 + retroactive AUTO_STRIP wave + UAT bug-fix sweep | **Complete.** 3 review passes clean (0 Critical, 0 Warning, 13 Info). UAT bug-fix sweep 2026-04-28 closed 7 bug classes across commits 6553380..205fb67 — 12 automated tests green, methodology codified in `02-UAT-LESSONS-LEARNED.md`. User confirmed visual UAT via the 16-mask-pattern demo scene 2026-04-28T22:00. LOC overage (1827 vs ~1500 informational trigger) carried forward; formal gate is Phase 5 final audit. | 2026-04-28 |
 | 3. Public-Convention Layouts (Blob47 only; Tilesetter deferred to v0.3+) | 6/6 (5 executed + Plan 05 SKIPPED per D-86 = b) | **Complete with reduced scope per D-86 (b)** — Blob47Godot ships (TBT-03), audit deliverable + README footnote land (TBT-04, DOC-05); Tilesetter pair (TBT-01/02) + Tilesetter half of TEMPLATE-02 deferred to v0.3+ via `TBT-01-DEFERRED` / `TBT-02-DEFERRED` / `TEMPLATE-02-DEFERRED`. 15 automated tests green; matrix coverage extended to 6×18=108 combos in comprehensive_bitmask_test. Cumulative runtime LOC ~2455 (Phase 2 baseline 1827 + Phase 3 delta ~121 + measurement methodology drift; AT RISK carry-forward for Phase 5 final identity audit). No `addons/penta_tile/ATTRIBUTION.md` created (D-73 final guard). | 2026-04-29 |
-| 3.5. PixelLab Layouts (variation-bank pick deferred to v2) | 3/6 | In progress — Plans 01-03 complete (generator + 2 greybox PNGs; both PIXLAB layouts shipped: PIXLAB-01 + PIXLAB-02) | - |
+| 3.5. PixelLab Layouts (variation-bank pick deferred to v2) | 5/6 | In progress — Plans 01-05 complete (generator + 2 greybox PNGs + both PIXLAB layouts + first-cell test + visual regression test against real PixelLab samples; PIXLAB-01..04 closed). Plan 06 closeout pending. | - |
 | 4. Fallback Routing | 0/TBD | Not started | - |
 | 5. Demo Refresh + Documentation + Release | 0/TBD | Not started | - |
 

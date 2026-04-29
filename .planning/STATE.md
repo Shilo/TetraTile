@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.2.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 03.5-04 complete
-last_updated: "2026-04-29T10:01:00.671Z"
+stopped_at: Plan 03.5-05 complete
+last_updated: "2026-04-29T10:10:58.948Z"
 last_activity: 2026-04-29
 progress:
   total_phases: 8
   completed_phases: 4
   total_plans: 27
-  completed_plans: 25
-  percent: 93
+  completed_plans: 26
+  percent: 96
 ---
 
 # Project State
@@ -26,13 +26,13 @@ See: .planning/PROJECT.md (updated 2026-04-25 after v0.2 pivot to layout library
 ## Current Position
 
 Phase: 03.5 (PixelLab Layouts + Variation-Seed Wiring) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-04-29
 
 > Phase 03 closed 2026-04-29 with reduced scope per D-86 = (b). Blob47Godot shipped (TBT-03 + TEMPLATE-02 partial); audit deliverable + README footnote landed (TBT-04, DOC-05); 8-Moore single-grid propagation patch landed (D-87); Tilesetter pair + Tilesetter half of TEMPLATE-02 deferred to v0.3+ backlog (`TBT-01-DEFERRED` / `TBT-02-DEFERRED` / `TEMPLATE-02-DEFERRED`). Plan 06 (closeout) extended `comprehensive_bitmask_test` + `bitmask_bounds_test` with Blob47Godot, added 2 new 8-Moore-revealing patterns (plus_with_diagonals, diag_chain), recorded the deferred-backlog entries in REQUIREMENTS.md, and flipped Phase 3 ROADMAP entry to `[x]`.
 
-Progress: [█████████░] 93%
+Progress: [██████████] 96%
 
 > Out-of-band progress: 5 of 8 greyboxed template PNGs + the generator script shipped in commit e86036f as part of the discovery pass. Counted as TEMPLATE-01 + TEMPLATE-03 covered. The remaining 3 templates (Blob47Godot, TilesetterWang15, TilesetterBlob47) ship in Phase 3 once their slot tables are transcribed from TileBitTools.
 
@@ -74,6 +74,7 @@ Progress: [█████████░] 93%
 | Phase 03.5 P02 | 2min | 1 task tasks | 2 files files |
 | Phase 03.5 P03 | 5min | 1 tasks | 2 files |
 | Phase 03.5 P04 | 7min | 3 tasks tasks | 7 files files |
+| Phase 03.5 P05 | 6min | 3 tasks tasks | 7 files files |
 
 ## Accumulated Context
 
@@ -157,6 +158,7 @@ TILESETTER_DECISION: b
 - Phase 3.5 Plan 02 complete: PentaTileLayoutPixelLabTopDown shipped — 8x8 single-grid corner-mask layout with cached _first_cell_by_mask Array[Vector2i] (D-89 row-major first-cell pick). Locked _CELL_TO_ROLE (top-down) + _ROLE_TO_MASK [4,10,13,12,9,14,15,7,2,3,11,5,0,8,6,1] verbatim from spike 003. mask=0 dispatches to (2,2) via cache (D-104, Pitfall #9). transform_flags=0 (D-90 no rotation reuse). Functional LOC=52 well under D-105 70-cap. UID sidecar uid://dve83mfavy5r5 generated. Commit 18ef118.
 - Phase 3.5 Plan 03 complete: PentaTileLayoutPixelLabSideScroller shipped (twin of top-down with side-scroller cell-to-role table). Mask=0 → (0,0) per D-104 (vs top-down (2,2)). _ROLE_TO_MASK identical to top-down per D-94, duplicated per D-98. Functional LOC=52, UID sidecar uid://c430mc3lmufs2. Commit 2a20bf9. PIXLAB-02 satisfied.
 - Phase 3.5 Plan 04: pixellab_first_cell_test ships with hand-derived expected tables locking D-89 first-cell row-major pick contract; verify-the-regression cycle confirmed (17 failures when _init_cache stashed). PIXLAB silhouette generator switched D-101 option A → option B (solid 32×32) per anticipated PATTERNS.md fallback after comprehensive_bitmask_test exposed single-grid solidity violation; bitmask_bounds_test PIXLAB callers reuse _solid_silhouette. Matrix combos grew 108 → 144. Full 16-test suite green.
+- Phase 3.5 Plan 05 complete: pixellab_visual_regression_test ships against real PixelLab AI samples (128x128, 8x8 atlas at 16px tiles) copied byte-identical from spike 003. Composed-canvas + bit-stability invariants per D-102 case 3. PackedByteArray.hash() does not exist in Godot 4.6 — replaced with direct PackedByteArray equality (Rule 1 auto-fix). Verify-the-regression cycle confirmed via visual diff (saved canvas PNG diff between working state and stashed mask_to_atlas → (0,0)). Full 17-test suite green. PIXLAB-04 closed.
 
 ### Pending Todos
 
@@ -195,8 +197,8 @@ Items acknowledged and carried forward as v2 requirements (see REQUIREMENTS.md v
 
 ## Session Continuity
 
-Last session: 2026-04-29T10:00:51.732Z
-Stopped at: Plan 03.5-04 complete
+Last session: 2026-04-29T10:10:58.942Z
+Stopped at: Plan 03.5-05 complete
 Resume file: None
 
 **Completed Phase:** 01 (Contract Skeleton + Penta Layouts) — 5/5 plans, 14/14 requirements, 26/26 automated tests PASS — 2026-04-26
