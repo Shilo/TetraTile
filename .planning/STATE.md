@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.2.0
 milestone_name: milestone
-status: planning
+status: ready_to_plan
 stopped_at: Phase 3 closed (Plan 06 complete; D-86 = b reduced scope; Tilesetter deferred to v0.3+); Phase 4 (Fallback Routing) is next planning step
 last_updated: "2026-04-29T08:08:59.763Z"
 last_activity: 2026-04-29
 progress:
   total_phases: 8
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 21
   completed_plans: 21
-  percent: 100
+  percent: 63
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-04-25 after v0.2 pivot to layout library
 
 ## Current Position
 
-Phase: 03 (Public-Convention Layouts (Blob47 only; Tilesetter deferred to v0.3+)) — COMPLETE (D-86 outcome b; 5 plans executed + Plan 05 SKIPPED; cumulative ~2455 runtime LOC; full test suite 15/15 green)
-Plan: All Phase 3 plans closed
-Status: Phase 3 closed — Phase 4 (Fallback Routing) is the next planning step (run `/gsd-plan-phase 4`)
+Phase: 06
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-04-29
 
 > Phase 03 closed 2026-04-29 with reduced scope per D-86 = (b). Blob47Godot shipped (TBT-03 + TEMPLATE-02 partial); audit deliverable + README footnote landed (TBT-04, DOC-05); 8-Moore single-grid propagation patch landed (D-87); Tilesetter pair + Tilesetter half of TEMPLATE-02 deferred to v0.3+ backlog (`TBT-01-DEFERRED` / `TBT-02-DEFERRED` / `TEMPLATE-02-DEFERRED`). Plan 06 (closeout) extended `comprehensive_bitmask_test` + `bitmask_bounds_test` with Blob47Godot, added 2 new 8-Moore-revealing patterns (plus_with_diagonals, diag_chain), recorded the deferred-backlog entries in REQUIREMENTS.md, and flipped Phase 3 ROADMAP entry to `[x]`.
@@ -40,7 +40,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 5
+- Total plans completed: 11
 - Average duration: —
 - Total execution time: 0.0 hours
 
@@ -49,6 +49,7 @@ Progress: [██████████] 100%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 | 5 | - | - |
+| 03 | 6 | - | - |
 
 **Recent Trend:**
 
