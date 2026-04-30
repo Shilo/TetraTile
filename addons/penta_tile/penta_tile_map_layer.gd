@@ -334,6 +334,15 @@ func _mark_affected_single_grid_cells(affected: Dictionary, logic_cell: Vector2i
 # base PentaTileLayout returns 0). Threaded into mask_to_atlas so per-strip
 # dispatch lands at Vector2i(slot, strip_index) in the synthesized atlas.
 func _paint_via_layout(display_cell: Vector2i, active_layout: PentaTileLayout, source: int, sample_fn: Callable) -> void:
+	# --- Phase 10: Dual-grid terrain dispatch branch (D-11) ---
+	# When terrain_group is active and the layout is dual-grid, each display
+	# cell dispatches per-corner: TL through TL logic cell's terrain layout,
+	# TR through TR's, etc. terrain_precedence controls paint stacking (D-12).
+	if active_layout.is_dual_grid() and terrain_group != null:
+		_primary_layer.erase_cell(display_cell)
+		_paint_dual_grid_terrain(display_cell, source)
+		return
+
 	_primary_layer.erase_cell(display_cell)
 
 	# SINGLE-GRID LAYOUTS: only render cells that are themselves logic-painted.
@@ -398,6 +407,93 @@ func _paint_via_layout(display_cell: Vector2i, active_layout: PentaTileLayout, s
 	if slot == null:
 		return
 	_paint_with_slot(_primary_layer, slot, display_cell, source)
+
+
+## Per-corner dual-grid terrain dispatch (D-11, D-13).
+## Each display cell gets painted up to 4 times — once per terrain present
+## in the 4 neighboring logic cells (TL/TR/BL/BR). The TL corner dispatches
+## through TL logic cell's terrain layout, TR through TR's, BL through BL's,
+## BR through BR's.
+##
+## terrain_precedence determines paint order: higher-precedence terrains
+## paint later (on top). When terrain_precedence is empty, paint order
+## follows layouts array index order (D-12).
+##
+## Called from _paint_via_layout when layout is dual-grid and terrain_group
+## is bound.
+func _paint_dual_grid_terrain(display_cell: Vector2i, source: int) -> void:
+	# Corners in TL, TR, BL, BR order — matching _mark_affected_display_cells
+	const CORNERS := [
+		Vector2i(-1, -1),  # TL
+		Vector2i(0, -1),   # TR
+		Vector2i(-1, 0),   # BL
+		Vector2i(0, 0),    # BR
+	]
+
+	# Gather per-terrain data: terrain_id -> {layout, mask bits}.
+	# Mask is computed per-terrain by checking which corners belong to that
+	# terrain (D-11). Dual-grid layouts don't filter neighbors by terrain in
+	# compute_mask, so we build the mask ourselves from per-corner terrain IDs.
+	var terrain_data: Dictionary = {}  # terrain_id -> { "layout": layout, "mask": int }
+
+	for i: int in range(CORNERS.size()):
+		var logic_cell: Vector2i = display_cell + CORNERS[i]
+		if not _has_logic_cell(logic_cell):
+			continue
+		var terrain_id: int = _resolve_terrain_id(logic_cell)
+		if not terrain_data.has(terrain_id):
+			var entry: Dictionary = _terrain_index.get(terrain_id, {})
+			var layout: PentaTileLayout = entry.get("layout") if not entry.is_empty() else null
+			if layout == null:
+				continue
+			terrain_data[terrain_id] = {"layout": layout, "mask": 0}
+		# Set the corner bit for this terrain
+		terrain_data[terrain_id]["mask"] |= (1 << i)
+
+	# Convert to sortable list
+	var layers: Array[Dictionary] = []
+	for terrain_id: int in terrain_data.keys():
+		var data: Dictionary = terrain_data[terrain_id]
+		layers.append({
+			"terrain_id": terrain_id,
+			"layout": data["layout"],
+			"mask": data["mask"],
+		})
+
+	# Sort by terrain_precedence (D-12). Higher precedence = painted later.
+	# When terrain_precedence is empty, maintain layouts array order (terrain_id).
+	layers.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var prec_a := 0
+		var prec_b := 0
+		if terrain_group != null:
+			var tp: Array[int] = terrain_group.terrain_precedence
+			if a.terrain_id < tp.size():
+				prec_a = tp[a.terrain_id]
+			if b.terrain_id < tp.size():
+				prec_b = tp[b.terrain_id]
+		if prec_a != prec_b:
+			return prec_a < prec_b  # lower precedence painted first
+		return a.terrain_id < b.terrain_id  # tiebreaker: terrain_id order
+	)
+
+	# Paint each terrain layer in sorted order (higher precedence on top)
+	for layer_dict: Dictionary in layers:
+		var layout: PentaTileLayout = layer_dict["layout"]
+		var mask: int = layer_dict["mask"]
+		var paint_source: int = source
+
+		# mask=0 short-circuit per PITFALLS §4 (dual-grid universal)
+		if mask == 0:
+			continue
+
+		var slot := layout.mask_to_atlas(mask, layer_dict["terrain_id"])
+		if slot == null:
+			continue
+
+		if slot.source_id >= 0:
+			paint_source = slot.source_id
+
+		_paint_with_slot(_primary_layer, slot, display_cell, paint_source)
 
 
 # Paints the primary slot. The slot carries atlas_coords directly (no _atlas_coords
