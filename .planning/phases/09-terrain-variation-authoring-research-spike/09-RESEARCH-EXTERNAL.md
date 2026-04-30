@@ -244,3 +244,201 @@ This design means the user must explicitly define every cross-terrain transition
 | Debug support | Shift+R toggle to see raw data | Patterns view shows coverage gaps |
 | Flexibility | Very high (any custom behavior) | Constrained by terrain set type |
 
+---
+
+## RPG Maker Autotiles
+
+**Versions analyzed:** RPG Maker XP (2004), VX (2007), VXAce (2011), MV (2015), MZ (2020)
+**Source:** Community reverse-engineering, the RPG Maker MV/MZ `rpg_core.js` / `rmmz_core.js` source files, and decades of community documentation
+
+RPG Maker's autotile format is one of the oldest continuously-used autotiling conventions in game development. Unlike Tiled's terrain sets or LDtk's IntGrid + rules, RPG Maker uses a **fixed-layout atlas** where each terrain type has a predetermined tile arrangement — there's no user-authored terrain marking or rule definition. The layout IS the autotile contract.
+
+### Tileset Slot System (A1–A5)
+
+RPG Maker organizes tiles into labeled slots, each serving a specific terrain purpose:
+
+| Slot | Purpose | Autotile? | MV/MZ Dimensions |
+|------|---------|-----------|------------------|
+| **A1** | Animated terrain (water, lava, waterfalls) | Yes (animated) | 768×576 (3 animation frames × 4 variation columns, each column = 1 full autotile pattern) |
+| **A2** | Ground terrain (grass, dirt, sand, snow, paths) | Yes (base autotile) | 768×576 (multiple entries in a strip) |
+| **A3** | Building exteriors (roofs, outer walls) | Yes | 768×384 |
+| **A4** | Building interiors (inner walls, ceilings) | Yes (wall autotile) | 768×720 |
+| **A5** | Static tiles (floors, cliffs, objects, decorations) | No | 384×768 |
+
+Each A1–A4 slot contains **multiple autotile entries** arranged in a strip. Each entry is a self-contained terrain type with its own transition tiles. The engine doesn't handle *transitions between entries* — if "grass" (entry 1) touches "dirt" (entry 2), the edge shows as a hard cut unless the tileset author includes explicit grass-to-dirt transition tiles within one of the entries (typically in A5 or within the A2 entry itself).
+
+**Key architectural principle: Each tileset slot entry IS a terrain type. Multi-terrain is achieved by having multiple entries in the same slot or across slots.**
+
+### Quarter-Tile Mini-Tile Composition
+
+The defining technical feature of RPG Maker autotiles is **quarter-tile composition.** Each autotile image is subdivided into mini-tiles (16×16 pixels in XP/VX/VXAce, 24×24 pixels in MV/MZ), which the engine composes at runtime into full tiles:
+
+```
+Mini-tile grid for a single autotile entry (canonical VXAce A2 format):
+┌──────┬──────┬──────┐
+│ 0,0  │ 0,1  │ 0,2  │  ← Row 0: inner corner mini-tiles
+├──────┼──────┼──────┤
+│ 1,0  │ 1,1  │ 1,2  │  ← Row 1: edge mini-tiles
+├──────┼──────┼──────┤
+│ 2,0  │ 2,1  │ 2,2  │  ← Row 2: fill / outer-corner mini-tiles
+└──────┴──────┴──────┘
+
+Each final tile = 2×2 mini-tiles (32×32 in VXAce, 48×48 in MV/MZ)
+```
+
+The engine selects which mini-tile goes in each quadrant of the final tile based on the four neighboring cells' terrain types. The core lookup logic:
+
+- **Top-left quadrant:** Determined by NW + N + W neighbors
+- **Top-right quadrant:** Determined by NE + N + E neighbors
+- **Bottom-left quadrant:** Determined by SW + S + W neighbors
+- **Bottom-right quadrant:** Determined by SE + S + E neighbors
+
+**XP-era format (2004, 16×16 tiles):**
+Each autotile is a 96×96 pixel image containing a 3×4 grid of 16×16 mini-tiles plus an animation row. The 3 columns represent inner-corner / edge / fill variations; the 4 rows (beyond animation) represent the four sub-tile composition positions.
+
+**VXAce format (2011, 32×32 tiles):**
+Each autotile is 96×128 pixels. The mini-tile grid is 3 columns × 4 rows of 16×16 mini-tiles. The bottom row (row 3) is a special "edge priority" row for wall autotiles. The 2×2 quadrant compositions form the final 32×32 tile.
+
+**MV/MZ format (2015+, 48×48 tiles):**
+Each autotile entry is 144×144 pixels, subdivided into a 3×3 grid of 48×48 mini-tiles. The format is:
+```
+Row 0: [Inner NW] [Inner NE] [Solid Fill]
+Row 1: [Edge N]    [Edge S]    [Edge W]
+Row 2: [Edge E]    [Corner SW] [Corner SE]
+```
+
+The exact composition mapping is encoded in `Tilemap.shader` and `rpg_core.js` / `rmmz_core.js` as a shader uniform table that maps neighbor combinations to quadrant UV offsets. MV/MZ moved much of the autotile logic to the GPU via WebGL shaders for performance.
+
+### Terrain Separation Model
+
+RPG Maker's terrain model is **slot-based, not algorithmic:**
+
+| Aspect | RPG Maker Approach |
+|--------|-------------------|
+| Terrain types | A1–A4 slots, each with multiple entries |
+| Transition computation | Fixed mini-tile lookup table (not terrain-marked) |
+| Cross-terrain transitions | Must be pre-authored within one of the entries (engine does not auto-generate) |
+| Terrain mixing on one layer | Supported: multiple A2 entries can coexist on the same map layer |
+| Per-cell terrain assignment | The cell stores which tileset entry (index) + which quadrant composition to use |
+| Variation | Animation columns (A1 only by default), community plugins (MV/MZ) |
+| Edge priority | Wall autotiles (A4) have special "shadow edge" priority — edges render on top of adjacent ground tiles for Z-ordering |
+
+The engine stores each map cell as a tile ID that encodes:
+1. Which tileset slot (A1–A5) the tile belongs to
+2. Which entry within that slot
+3. Which mini-tile composition (quadrant assembly) to use
+
+This means the terrain identity of a cell is implicit in its tile ID — there's no separate "terrain type" metadata. The fixed mini-tile lookup table handles ALL transition logic; the user never authors terrain rules or corner markings.
+
+### Variation Handling
+
+RPG Maker's variation model is fundamentally different from Tiled's probability system:
+
+1. **A1 animated tiles (the ONLY built-in randomization):** The A1 slot has 3 animation frames and 4 variation columns. The engine cycles through frames for animation AND randomly picks a column for variation. This creates 4 visually-distinct variants of the same autotile pattern. The column pick is per-cell at map load time — not per-frame, so variation is static once placed.
+
+2. **Fixed mini-tile mapping (zero variation for A2–A5):** For non-animated autotiles, there is NO random variation. The mini-tile-to-quadrant mapping is purely deterministic — the same terrain adjacency pattern always produces the exact same visual output. If the user wants visual variety (e.g., "sometimes this grass tile has a flower, sometimes not"), they must:
+   - Use sprite events overlaid on the tile (fake variation)
+   - Use a different tileset entry entirely (a separate "grass with flowers" autotile)
+   - Use a community plugin that post-processes the map
+
+3. **Variation through map events/sprites (traditional workaround):** RPG Maker users have always simulated visual variation by placing "events" (engine entities with sprites) on top of autotiled cells. This is sprite overlay, not true tile-level variation — the event sits on a separate layer and is not part of the tile rendering pipeline.
+
+4. **Community variation plugins (MV/MZ era):** Third-party plugin authors have created "random tile replacement" plugins that post-process the map to randomly swap certain tiles with alternatives from a user-defined replacement dictionary. This is conceptually similar to LDtk's random mode but implemented as an engine modification rather than an editor feature. These plugins typically work per-map, not per-cell-paint.
+
+5. **No terrain-to-terrain transition variations:** Each autotile entry's transition tiles are fixed and deterministic. There's no concept of "when grass transitions to dirt, sometimes use transition style A, sometimes style B." Multiple transition styles require multiple autotile entries.
+
+### Implicit Terrain Handling via Fixed Layout
+
+The fixed layout itself encodes terrain identity:
+
+1. **Each entry's mini-tile grid position MEANS something.** Row 0, column 0 always means "inner corner, NW quadrant." The editor's paint tool automatically looks up the correct mini-tile assembly based on neighbor cells — the user never manually selects mini-tiles.
+
+2. **The engine handles terrain adjacency AUTOMATICALLY** within an entry, but NEVER between entries. Within a ground autotile entry, painting adjacent cells automatically selects the correct edge/corner/fill mini-tiles. But painting one entry next to a different entry results in a hard visual seam.
+
+3. **The A5 slot is the "glue" between entries.** Static tiles (A5) are often used as transition buffers — e.g., a dirt path (A5 static tile) placed between grass (A2 entry 1) and cobblestone (A2 entry 2) to hide the hard seam. This is a common RPG Maker mapping idiom.
+
+4. **No "empty terrain" concept.** Unlike Tiled (where unmarked corners mean "empty"), RPG Maker's autotiles always assume every cell has a terrain. The "empty" or "transparent" tile exists only in the static A5 slot, not in the autotile system.
+
+### Cross-Version Format Evolution
+
+| Version | Year | Tile Size | Mini-Tile Size | Autotile Dimensions | Notes |
+|---------|------|-----------|---------------|---------------------|-------|
+| **XP** | 2004 | 32×32 | 16×16 | 96×96 per entry | First autotile system; 3×4 mini-tile grid + animation row |
+| **VX** | 2007 | 32×32 | 16×16 | 64×96 per entry | Simplified 2×3 mini-tile grid; removed animation row |
+| **VXAce** | 2011 | 32×32 | 16×16 | 96×128 per entry | Returned to 3×4 grid; added edge priority row for walls |
+| **MV** | 2015 | 48×48 | 24×24 | 144×144 per entry | Moved autotile logic to GPU shader; 3×3 mini-tile grid |
+| **MZ** | 2020 | 48×48 | 24×24 | 144×144 per entry | Same format as MV; added Effekseer animation integration |
+| **Unite** | 2022 | 48×48 | — | N/A | Unity-based; completely different tile system |
+
+### Key Insights for PentaTile
+
+1. **RPG Maker's slot-based terrain model is conceptually similar to PentaTile's layout-based model.** Each tileset slot entry is a self-contained autotile — in PentaTile terms, each entry could map to a `PentaTileLayout` instance. Multi-terrain = multiple layout instances on the same layer.
+
+2. **Quarter-tile composition is architecturally reserved for v0.3+** (see `.planning/PROJECT.md` Out of Scope). However, the *concept* of mini-tile lookup tables is relevant — PentaTile's existing `mask_to_atlas` dict is already a lookup table, just at the full-tile level rather than quarter-tile.
+
+3. **No intermediate transition computation** is RPG Maker's biggest limitation. PentaTile can do BETTER by offering both: explicit per-entry atlases (like RPG Maker) AND automatic transition computation between entries (like Tiled's terrain sets, using the terrain group concept).
+
+4. **The A1 animation column for variation** maps to PentaTile's existing variation seed system: each column = a variation, pick one randomly. RPG Maker uses per-cell random at load time; PentaTile uses deterministic hash-based random.
+
+5. **The fixed-layout format means zero authoring overhead** — the user provides a correctly-formatted image, and the engine does the rest. PentaTile's fallback system (`get_fallback_tile_set()`) and bundled bitmask PNGs follow this same philosophy: zero-config autotiling.
+
+6. **The "hard seam between entries" problem** is the critical UX gap that PentaTile's multi-terrain system should solve. RPG Maker users work around this with A5 static transition tiles — an explicit, labor-intensive solution. A Tiled-style terrain group approach (entries that know how to transition to each other) would eliminate this pain point.
+
+7. **The 3-frame animation + 4-column variation in A1** suggests a combined animation+variation model: each cell picks a variation column (deterministic hash), and the engine cycles through animation frames (time-based). This dual-axis variation could be a v0.3+ enhancement for PentaTile.
+
+---
+
+## Cross-Editor Comparison Table
+
+| Feature | Tiled | LDtk | RPG Maker | PentaTile (current) |
+|---------|-------|------|-----------|---------------------|
+| **Logic layer** | Single tile layer (tiles store terrain set membership) | IntGrid layer (separate integer grid) | Tile layer (tiles store slot entry index) | Hidden TileMapLayer (self_modulate.a=0) |
+| **Visual output** | Same layer (terrains applied to tile layer) | Separate auto-layer (reads IntGrid) | Same layer | Separate visible TileMapLayer |
+| **Multi-terrain model** | Terrain Sets (groups of interrelated terrains) | IntGrid values (per-cell integer IDs) | Tileset slots (A1–A5 entries) | Single layout per layer |
+| **Transition computation** | Automatic (engine computes from terrain markings) | Manual (user authors transition rules) | Fixed (pre-authored mini-tile lookup) | Automatic (mask_to_atlas dispatch) |
+| **Cross-terrain transitions** | Supported (if terrains share a Terrain Set) | Supported (if user authors cross-terrain rules) | Not supported (hard edges, A5 glue tiles) | N/A (single terrain only) |
+| **Variation model** | Probability weighting (tile + terrain level) | Selection-rectangle random pool | Animation columns (A1 only), community plugins | Deterministic hash (rand_weighted) |
+| **Transformation reuse** | Yes (flip/rotate tiles for more variations) | No (tiles used as-is) | No (atlas is fixed, no runtime transforms) | Yes (TRANSFORM_FLIP_H/V + TRANSPOSE) |
+| **Authoring effort** | Medium (mark tile corners/edges) | High (author explicit rules per terrain) | Low (conform to fixed atlas format) | Low (provide correctly-sized atlas strip) |
+| **Max terrains** | 254 per Terrain Set | Unlimited (255 unique IntGrid values per layer) | Limited to tileset slot count (~50 entries) | 1 per layer (current) |
+| **Per-cell terrain override** | Yes (each cell can be a different terrain) | Yes (each cell has an IntGrid value) | Yes (each cell stores which entry to use) | No (single layout, single terrain) |
+
+---
+
+## Architectural Takeaways for PentaTile Multi-Terrain
+
+### 1. The Terrain Group Concept (from Tiled)
+
+The most applicable concept is Tiled's **Terrain Set** — a collection of interrelated terrain types that share transition rules. For PentaTile, this could become a new `PentaTileTerrainGroup` resource that:
+- Contains multiple layouts (one per terrain type)
+- Defines transition rules between terrain types
+- Each cell stores `(layout_index, terrain_id)` via custom data layers
+- The solver auto-computes terrain borders and dispatches to the correct layout's transition tiles
+
+### 2. The Logical Separation Pattern (from LDtk)
+
+LDtk's IntGrid → Auto-layer separation is already partially reflected in PentaTile's logic/visual layer split. Extending this to multi-terrain:
+- The logic layer stores terrain IDs (integers)
+- Multiple visual layers (one per terrain) read from the logic layer
+- Each visual layer uses its own `PentaTileLayout`
+- The solver dispatches per-cell based on terrain ID
+
+### 3. The Slot-Based Atlas Model (from RPG Maker)
+
+RPG Maker's tileset slot system shows how multiple terrains can coexist in a single tileset image. PentaTile's existing `PentaTileLayoutPenta` with auto-detect STRIP mode already handles multi-strip atlases. Multi-terrain could extend this:
+- Each strip = one terrain type
+- The solver auto-detects terrain boundaries at strip edges
+- Transition tiles between strips (if provided) are used; otherwise hard edges
+
+### 4. Recommended Hybrid Approach
+
+Based on this exhaustive research, the most promising direction combines elements from all three editors:
+- **Tiled's terrain group model** for authoring (define terrains, mark transitions)
+- **LDtk's value-per-cell model** for data storage (custom data layer = terrain ID)
+- **RPG Maker's autorun philosophy** for UX (zero-config default, override when needed)
+- **PentaTile's existing layout system** for rendering (one layout per terrain, dispatch via mask_to_atlas)
+
+---
+
+*Research complete. Findings feed into Plan 09-03 (Architecture Synthesis).*
+
