@@ -19,6 +19,13 @@ Key Godot APIs in use:
 - `TileData.probability` — read-only weights for variation (Godot does NOT auto-pick at `set_cell` time; the addon runs its own deterministic-hash `rand_weighted` inside `_update_cells`)
 - `TileSet.custom_data_layers` — for per-tile flags like `penta_role` and `penta_lock_rotation`
 
+## MCP Tools
+
+This project has MCP (Model Context Protocol) tools available. Always prefer these over manual approaches when applicable:
+
+- **Godot MCP** — `godot_*` tools for launching the editor, running the project, getting debug output, creating/modifying scenes, exporting resources, and managing UIDs. Use these for any Godot editor or runtime interaction.
+- **Context7 MCP** — `context7_resolve-library-id` + `context7_query-docs` for looking up up-to-date documentation and code examples from any library/framework. Use this when you need API docs, usage patterns, or examples for third-party libraries.
+
 ## Layout
 
 ```
