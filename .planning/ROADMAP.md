@@ -348,10 +348,13 @@ Plans:
 5. **Backlog cleanup:** Update REQUIREMENTS.md and STATE.md with any new un-defer triggers, dependencies, or "do not pursue" notes discovered during triage. No backwards-compat shims, version fields, schema markers, or speculative extension points.
 6. **Next-step recommendation:** Produce one recommended v0.3 package and two alternates, with the exact `/gsd-plan-phase` target that should be run next.
 
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 8 to break down)
+- [ ] 08-01-PLAN.md — Verify claims and disposition supplied research recommendations
+- [ ] 08-02-PLAN.md — Rank v0.3 candidates and write the scope firewall
+- [ ] 08-03-PLAN.md — Refine REQUIREMENTS backlog triggers and constraints
+- [ ] 08-04-PLAN.md — Recommend v0.3 package, update ROADMAP/STATE, and close Phase 8
 
 ---
 *Roadmap re-spun: 2026-04-25 after v0.2 pivot to layout library*
