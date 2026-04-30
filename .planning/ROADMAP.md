@@ -1,8 +1,8 @@
 # Roadmap: PentaTile v0.2.0
 
-**Milestone:** v0.2.0 — "Layout Library + Preview Fallback"
-**Created:** 2026-04-25 (re-spun after pivot from "expand the contract")
-**Granularity:** standard (5 phases)
+**Milestone:** v0.3.0 — "Terrain + Variation + VirtuMap Integration"
+**Created:** 2026-04-30 (transitioned from v0.2.0 which shipped 2026-04-29)
+**Granularity:** standard
 
 ## Overview
 
@@ -225,7 +225,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 3.5 → 4 → 5 → 6 → 7 → 8
+Phases execute in numeric order: 1 → 2 → 3 → 3.5 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -239,7 +239,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 3.5 → 4 → 5 → 6 → 7 �
 | 6. Editor Line/Rect/Bucket Tool Preview During Drag | 0/0 | Deferred / not planned. Known editor-preview UX issue captured for later. | — |
 | 7. Repo Restructure: Extract Tests + MkDocs Site + LLM-Friendly Docs Pipeline | 1/1 | **Complete.** Tests extracted to root `tests/`; release workflow retargeted and still archives only `addons/penta_tile/`; MkDocs Material site added with dark-first manual toggle; LLM docs decision recommends direct source docs over generated flat artifact for now. | 2026-04-29 |
 | 8. Research Triage + v0.3 Scope Selection | 4/4 | **Complete.** Verified competitive-autotiling claims, dispositioned supplied recommendations, ranked v0.3 candidates, wrote scope firewall, refined backlog triggers, and recommended **Terrain + Variation Authoring Research Spike** as the next v0.3 target. Production terrain/variation refactors remain blocked until spike findings plus user-side manual Godot testing exist. | 2026-04-30 |
-| 9. Terrain + Variation Authoring Research Spike | 0/0 | Added from Phase 8 recommendation. Research spike only; not planned yet. | — |
+| 9. Terrain + Variation Authoring Research Spike | 3/3 | Complete. 09-ARCHITECTURE-RECOMMENDATION.md produced: PentaTileTerrainGroup + penta_terrain_id custom data layer + transient terrain index + 6-phase blueprint (~440 LOC). Godot terrain sets PDF fully extracted. All 6 phase decisions verified. | 2026-04-30 |
+| 10. Multi-Terrain + Variation Implementation | 0/0 | Consumes spike 006+007. Blocked until Phase 9 completes. | — |
+| 11. VirtuMap Integration Bridge | 0/0 | Consumes spike 004+005. Blocked until Phase 10 completes. | — |
 
 ## Coverage
 
@@ -367,13 +369,37 @@ Plans:
 
 ### Phase 9: Terrain + Variation Authoring Research Spike
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal**: Research and design the architecture for multi-terrain dispatch, deterministic variation, and VirtuMap integration. Output: formal architecture recommendation at `09-ARCHITECTURE-RECOMMENDATION.md`.
+**Requirements**: D-01..D-06 (phase-specific design decisions)
 **Depends on:** Phase 8
+**Plans:** 3 plans complete (3/3)
+
+Plans:
+- [x] 09-01-PLAN.md — Wave 1: Godot native + TileMapDual + TileBitTools + BetterTerrain terrain/variation architectures
+- [x] 09-02-PLAN.md — Wave 1: Tiled + LDtk + RPG Maker external editor autotile conventions
+- [x] 09-03-PLAN.md — Wave 2: Synthesize into PentaTileTerrainGroup + penta_terrain_id + transient terrain index + 6-phase blueprint
+
+### Phase 10: Multi-Terrain + Variation Implementation
+
+**Goal:** Implement terrain dispatch via PentaTileTerrainGroup Resource (Phase 9 design) + deterministic variation via TileData.probability + source_id on AtlasSlot + terrain_mode() virtual + compute_mask(strip_index) extension. Consumes Phase 9 architecture + spikes 006+007 findings.
+
+**Requirements**: TBD
+**Depends on:** Phase 9
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 9 to break down)
+- [ ] TBD (run /gsd-plan-phase 10 to break down)
+
+### Phase 11: VirtuMap Integration Bridge
+
+**Goal:** Implement atlas passthrough (source-ID gating + _PentaTilePassthrough layer) + PentaTileLayoutSlope subclass + editor preview fix (ghost material refactor). Consumes spike 004+005 findings. Enables VirtuMap to adopt PentaTile as its autotiling engine.
+
+**Requirements**: TBD
+**Depends on:** Phase 10
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 11 to break down)
 
 ---
 *Roadmap re-spun: 2026-04-25 after v0.2 pivot to layout library*

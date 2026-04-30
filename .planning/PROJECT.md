@@ -19,29 +19,41 @@ Painting tiles with the native `TileMapLayer` API produces correct dual-grid aut
 - ✓ 4-tile binary atlas contract (Fill, Inner Corner, Border, Outer Corner) — v0.1.0
 - ✓ Horizontal (4×1) and vertical (1×4) atlas layouts — v0.1.0
 - ✓ 16-state mask-driven tile selection with transform rotations — v0.1.0
-- ✓ Two-layer composition for disconnected diagonal masks (6 and 9) — v0.1.0
-- ✓ Hidden logic layer via `self_modulate.a` (avoids Godot cleanup behavior) — v0.1.0
-- ✓ Generated visual-layer collisions sourced from TileSet physics polygons — v0.1.0
-- ✓ Public `rebuild()` helper for full visual regeneration — v0.1.0
-- ✓ Demo scene with platformer player and runtime drag-paint — v0.1.0
-- ✓ Codebase mapped in `.planning/codebase/` — v0.1.0
+
+<!-- Shipped in v0.2.0 "Layout Library + Preview Fallback" -->
+
+- ✓ `PentaTileMapLayer.layout: PentaTileLayout` exported directly (no contract wrapper) — v0.2.0
+- ✓ `PentaTileLayout` base class with virtual `compute_mask`, `mask_to_atlas`, `get_fallback_tile_set` — v0.2.0
+- ✓ 8 layout subclasses: Penta (ONE→FIVE), DualGrid16, Wang2Edge, Wang2Corner, Min3x3, Blob47Godot, PixelLabTopDown, PixelLabSideScroller — v0.2.0
+- ✓ Load-time Penta synthesis (ONE→FIVE modes) + AUTO/AUTO_STRIP detection — v0.2.0
+- ✓ Fallback TileSet routing (PREVIEW-03/04) — v0.2.0
+- ✓ Per-layout `bitmask_template: Texture2D` as inspector preview + fallback source — v0.2.0
+- ✓ 14 bundled greybox bitmask PNGs co-located next to layout `.gd` files — v0.2.0
+- ✓ 18 automated tests green — v0.2.0
+- ✓ Full GDScript `##` doc-comment sweep on 12 addon scripts — v0.2.0
+- ✓ 8-instance demo grid showcasing all layouts — v0.2.0
+- ✓ README "Layouts" / "Upgrading" / "Authoring a Custom Layout" / "Identity & Footprint" — v0.2.0
+- ✓ CHANGELOG v0.2.0 with all breaking changes — v0.2.0
+- ✓ GitHub release `v0.2.0` tag + zip at https://github.com/Shilo/PentaTile/releases/tag/v0.2.0 — v0.2.0
+
+<!-- Shipped in v0.2.0 follow-up (Phase 7) -->
+
+- ✓ Tests extracted to root `tests/` — v0.2.0
+- ✓ MkDocs Material documentation site — v0.2.0
 
 ### Active
 
-<!-- This milestone: layout library — every popular autotiling atlas convention is a pluggable Resource. -->
+<!-- v0.3 development — terrain, variation, VirtuMap integration. Research spike complete (Phase 9). -->
 
-- [ ] `PentaTileMapLayer.layout: PentaTileLayout` exported directly (no contract wrapper — the original `PentaTileAtlasContract` plan was overengineered and is deleted in Phase 2)
-- [ ] `PentaTileLayout` base class with virtual `compute_mask`, `mask_to_atlas`, `get_fallback_tile_set` dispatch
-- [ ] Single merged `PentaTileLayoutPenta` class with `axis: Axis` and `tile_count: TileCountMode` enums (auto-detect of 1/2/3/4/5 source tiles per strip; ONE through FIVE progressive synthesis modes)
-- [ ] DualGrid16 + Wang2Edge + Wang2Corner + Min3x3 layouts (PentaTile-native conventions)
-- [ ] Blob47Godot + TilesetterWang15 + TilesetterBlob47 layouts (slot tables transcribed from TileBitTools, MIT, attributed)
-- [ ] PixelLab Top-down + Side-scroller layouts
-- [ ] Per-layout `bitmask_template: Texture2D` rendered inline as inspector preview AND used as the prototyping fallback (single image per layout, both roles)
-- [ ] Per-layout `description: String` (multiline, inspector-editable) plus class-level `##` doc-comment
-- [ ] Bundled bitmask PNGs co-located next to layout `.gd` files (`addons/penta_tile/layouts/penta_tile_layout_penta/{one,two,three,four,five}_{horizontal,vertical}.png` + flat siblings for single-variant layouts)
-- [ ] Updated demo scene showcasing layout switching across the library
-- [ ] README "Layouts" section + "Upgrading from 0.1.x" + "Authoring a Custom Layout"
-- [ ] GitHub release tagged `v0.2.0`
+- [x] `PentaTileTerrainGroup` Resource architecture designed (Phase 9) — `penta_terrain_id` custom data layer + transient terrain index + 6-phase blueprint (~440 LOC)
+- [ ] Multi-terrain dispatch implementation (Phase 10) — one `PentaTileMapLayer` rendering N terrain types with boundary transitions
+- [ ] Deterministic variation via `TileData.probability` (Phase 10) — per-cell hash pick from weighted alternatives
+- [ ] `source_id` field on `PentaTileAtlasSlot` — multi-source TileSet output routing
+- [ ] `terrain_mode()` virtual on `PentaTileLayout` — Godot TerrainMode mapping per layout subclass
+- [ ] Atlas passthrough for VirtuMap fixtures (Phase 11) — source-ID gating in `_update_cells()`
+- [ ] `PentaTileLayoutSlope` subclass (Phase 11) — single-grid 4-bit corner mask, 8-tile atlas
+- [ ] Editor line/rect/bucket tool preview fix — ghost material refactor (~30 LOC)
+- [ ] `compute_mask(strip_index)` signature extension — multi-terrain mask computation
 
 ### Out of Scope
 
@@ -68,7 +80,7 @@ Painting tiles with the native `TileMapLayer` API produces correct dual-grid aut
 
 ## Context
 
-- Existing implementation is ~261 LOC of GDScript in a single class plus a working demo scene with a `CharacterBody2D` player and runtime drag-paint script. No external dependencies beyond Godot 4.6.
+- Existing implementation is v0.2.0 (shipped 2026-04-29): 8 layout subclasses, load-time Penta synthesis (ONE→FIVE modes), AUTO/AUTO_STRIP detection, fallback TileSet routing, 18 automated tests. Cumulative runtime LOC: 2884. Identity audit outcome: SHIP (clean hot path, 16/16 anti-patterns absent).
 - Architecture is intentionally lean: no persistent coordinate cache, no signal fanout, no watchers — `_update_cells()` recomputes affected masks on demand and writes directly to two internal `TileMapLayer`s.
 - v0.2 pivots from "expand the contract for variation/top/non-rotating" to "ship a library of pluggable layout Resources covering every popular Godot autotiling atlas convention." The user's pain point shifted: the strict 4-tile atlas isn't just visually limiting, it's incompatible with atlases authored anywhere else (Tilesetter, OpenGameArt 47-blob, Godot stock terrain templates, etc.). Solving the layout zoo solves the lock-in.
 - Layout-library research lives in `.planning/research/layouts/` — TAXONOMY (24 layouts catalogued), EDITORS (Tiled / LDtk / Tilesetter / Unity / RPG Maker conventions), GODOT_TERRAIN (the engine's stock terrain mechanics + why PentaTile bypasses them), MASK_UNIFICATION (architecture: polymorphic layout Resource), TILESETTER_AND_GODOT (live-doc audit), TILEBITTOOLS (TBT addon audit + slot tables we transcribe), COMPARISON (the artist-facing side-by-side reference).
@@ -106,7 +118,7 @@ Painting tiles with the native `TileMapLayer` API produces correct dual-grid aut
 | v0.2 architecture: every layout renders via load-time synthesis to a 5-archetype dispatch; runtime overlay layer removed entirely | Eliminates a TileMapLayer per node, simplifies AtlasSlot (drops `diagonal_complement_atlas_coords`), folds Penta4 + Penta5 into one auto-detect layout, makes Single-Tile and any future synthesized layouts share one render path. Synthesis happens at `layout` setter time (editor + runtime); produces the OppositeCorners archetype for masks 6/9. | — **Validated in Phase 2** |
 | GitHub release only; no Asset Library | Audience is private; Asset Library discoverability is not a goal this milestone. (Original "no MkDocs" stance reversed 2026-04-29 when Phase 7 added MkDocs docs site as v0.2.0 follow-up.) | — MkDocs site shipped in Phase 7; Asset Library still deferred |
 | Quality bar is "works in my game" — no formal test suite, no perf benchmarks | Keeps milestone scope tight on the layout library | — Pending |
-| One expanded demo scene over multiple per-feature demos | Simpler maintenance; surface area stays small as layouts land | — Pending |
+| One expanded demo scene over multiple per-feature demos | Simpler maintenance; surface area stays small as layouts land | ✓ Shipped in Phase 5 (8-instance grid demo) |
 
 ## Evolution
 
@@ -126,4 +138,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-25 after v0.2 pivot to layout library*
+*Last updated: 2026-04-30 after v0.2.0 shipped + Phase 9 spike complete + v0.3 scope defined*

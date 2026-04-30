@@ -199,24 +199,24 @@ Greyboxed silhouette PNGs the artist paints over.
 
 ### Demo (DEMO)
 
-- [ ] **DEMO-01**: One updated demo scene (`penta_tile_demo.tscn`) showcases all 8 actually-shipped layouts (5 Phase 2 + 1 Phase 3 + 2 Phase 3.5; Tilesetter pair stays deferred to v0.3+ per D-86 b) — runtime layout switching OR side-by-side `PentaTileMapLayer` instances.
-- [ ] **DEMO-02**: Demo references the bundled fallback `TileSet`s so it works out of the box without authored tilesets (proves the prototyping UX).
-- [ ] **DEMO-03**: Runtime drag-paint continues to work across all layouts (the existing `demo_runtime_painter.gd` doesn't break).
+- [x] **DEMO-01**: One updated demo scene (`penta_tile_demo.tscn`) showcases all 8 actually-shipped layouts (5 Phase 2 + 1 Phase 3 + 2 Phase 3.5; Tilesetter pair stays deferred to v0.3+ per D-86 b) — runtime layout switching OR side-by-side `PentaTileMapLayer` instances.
+- [x] **DEMO-02**: Demo references the bundled fallback `TileSet`s so it works out of the box without authored tilesets (proves the prototyping UX).
+- [x] **DEMO-03**: Runtime drag-paint continues to work across all layouts (the existing `demo_runtime_painter.gd` doesn't break).
 
 ### Documentation (DOC)
 
-- [ ] **DOC-01**: README has a "Layouts" section listing all 8 actually-shipped layouts with names, descriptions, atlas grids, and tile counts.
-- [ ] **DOC-02**: README has an "Upgrading from 0.1.x" section documenting the bundled-default contract as the primary migration path.
-- [ ] **DOC-03**: README has an "Authoring a Custom Layout" section showing how to subclass `PentaTileLayout` (marked experimental).
-- [ ] **DOC-04**: `CHANGELOG.md` entry documents all breaking changes for v0.2.0 — `PentaTileAtlasContract` deletion (replaced by direct `layout: PentaTileLayout` on the layer), `template_image` → `bitmask_template` rename, `fallback_tile_set` no longer @export'd, `decoder_image` deletion, `PentaTileLayoutPentaHorizontal`/`Vertical` merged into `PentaTileLayoutPenta`, new slot ordering (`0=IsolatedCell, 1=Fill, 2=Border, 3=InnerCorner, 4=OppositeCorners`; OuterCorner now implicit), 5-mode `tile_count` enum (ONE/TWO/THREE/FOUR/FIVE), AUTO_STRIP detection, overlay layer removal, all template PNG path changes (templates folder deleted; PNGs co-located in `layouts/`).
+- [x] **DOC-01**: README has a "Layouts" section listing all 8 actually-shipped layouts with names, descriptions, atlas grids, and tile counts.
+- [x] **DOC-02**: README has an "Upgrading from 0.1.x" section documenting the bundled-default contract as the primary migration path.
+- [x] **DOC-03**: README has an "Authoring a Custom Layout" section showing how to subclass `PentaTileLayout` (marked experimental).
+- [x] **DOC-04**: `CHANGELOG.md` entry documents all breaking changes for v0.2.0 — `PentaTileAtlasContract` deletion (replaced by direct `layout: PentaTileLayout` on the layer), `template_image` → `bitmask_template` rename, `fallback_tile_set` no longer @export'd, `decoder_image` deletion, `PentaTileLayoutPentaHorizontal`/`Vertical` merged into `PentaTileLayoutPenta`, new slot ordering (`0=IsolatedCell, 1=Fill, 2=Border, 3=InnerCorner, 4=OppositeCorners`; OuterCorner now implicit), 5-mode `tile_count` enum (ONE/TWO/THREE/FOUR/FIVE), AUTO_STRIP detection, overlay layer removal, all template PNG path changes (templates folder deleted; PNGs co-located in `layouts/`).
 - [x] **DOC-05**: `README.md` "External Resources" section's TileBitTools design-inspiration footnote exists (covered by TBT-04
  but called out here as a doc deliverable). Per D-72 + D-73, NO `addons/penta_tile/ATTRIBUTION.md` is created.
 
 ### Release (REL)
 
-- [ ] **REL-01**: `plugin.cfg` `version` field bumped by the release workflow per the auto-increment rule (D-05-16). REL-01 is verified by the workflow's commit SHA on the release tag, not by manual edit.
-- [ ] **REL-02**: Git tag `v0.2.0` cut on the release commit (no `-pre`/`-alpha`/`-dev` suffixes).
-- [ ] **REL-03**: GitHub Release artifact `penta_tile-v<release-version>.zip` with `addons/penta_tile/` at the archive root, including bundled bitmask PNGs. Per D-72/D-73, NO ATTRIBUTION.md ships — TileBitTools acknowledgment lives in README "External Resources" section as a design-inspiration footnote (DOC-05).
+- [x] **REL-01**: `plugin.cfg` `version` field bumped by the release workflow per the auto-increment rule (D-05-16). REL-01 is verified by the workflow's commit SHA on the release tag, not by manual edit.
+- [x] **REL-02**: Git tag `v0.2.0` cut on the release commit (no `-pre`/`-alpha`/`-dev` suffixes).
+- [x] **REL-03**: GitHub Release artifact `penta_tile-v<release-version>.zip` with `addons/penta_tile/` at the archive root, including bundled bitmask PNGs. Per D-72/D-73, NO ATTRIBUTION.md ships — TileBitTools acknowledgment lives in README "External Resources" section as a design-inspiration footnote (DOC-05).
 
 ### Phase 7 Repo Docs Follow-Up (REPO / DOCS)
 
