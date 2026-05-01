@@ -16,7 +16,6 @@
 extends SceneTree
 
 const _LayerScript       = preload("res://addons/penta_tile/penta_tile_map_layer.gd")
-const _TerrainGroupSc    = preload("res://addons/penta_tile/layouts/penta_tile_terrain_group.gd")
 const _Wang2EdgeSc       = preload("res://addons/penta_tile/layouts/penta_tile_layout_wang_2_edge.gd")
 const _DualGrid16Sc      = preload("res://addons/penta_tile/layouts/penta_tile_layout_dual_grid_16.gd")
 
@@ -128,12 +127,6 @@ func _build_strip_tileset() -> TileSet:
 	return ts
 
 
-func _group_single_terrain(layout: Resource) -> Resource:
-	var group = _TerrainGroupSc.new()
-	group.layouts.append(layout)
-	return group
-
-
 func _get_visual_atlas_coord(layer: Node, display_cell: Vector2i) -> Vector2i:
 	var primary: TileMapLayer = layer.get("_primary_layer")
 	if primary == null or not is_instance_valid(primary):
@@ -156,12 +149,11 @@ func _test_single_mode_preserved() -> void:
 
 	var ts := _build_variation_tileset()
 	var layer := _LayerScript.new()
-	layer.tile_set = ts
 
 	var layout := _Wang2EdgeSc.new()
 	layout.variation_mode = 0  # SINGLE
-	var group := _group_single_terrain(layout)
-	layer.terrain_group = group
+	layer.layout = layout
+	layer.tile_set = ts
 	get_root().add_child(layer)
 	await process_frame
 	await process_frame
@@ -184,12 +176,11 @@ func _test_probability_mode_weighted_pick() -> void:
 
 	var ts := _build_variation_tileset()
 	var layer := _LayerScript.new()
-	layer.tile_set = ts
 
 	var layout := _Wang2EdgeSc.new()
 	layout.variation_mode = 1  # PROBABILITY
-	var group := _group_single_terrain(layout)
-	layer.terrain_group = group
+	layer.layout = layout
+	layer.tile_set = ts
 	get_root().add_child(layer)
 	await process_frame
 	await process_frame
@@ -215,12 +206,11 @@ func _test_variation_determinism() -> void:
 
 	var ts := _build_variation_tileset()
 	var layer := _LayerScript.new()
-	layer.tile_set = ts
 
 	var layout := _Wang2EdgeSc.new()
 	layout.variation_mode = 1  # PROBABILITY
-	var group := _group_single_terrain(layout)
-	layer.terrain_group = group
+	layer.layout = layout
+	layer.tile_set = ts
 	get_root().add_child(layer)
 	await process_frame
 	await process_frame
@@ -277,12 +267,11 @@ func _test_no_shimmer_on_rebuild() -> void:
 
 	var ts := _build_variation_tileset()
 	var layer := _LayerScript.new()
-	layer.tile_set = ts
 
 	var layout := _Wang2EdgeSc.new()
 	layout.variation_mode = 1  # PROBABILITY
-	var group := _group_single_terrain(layout)
-	layer.terrain_group = group
+	layer.layout = layout
+	layer.tile_set = ts
 	get_root().add_child(layer)
 	await process_frame
 	await process_frame
@@ -324,12 +313,11 @@ func _test_strip_mode_pick() -> void:
 
 	var ts := _build_strip_tileset()
 	var layer := _LayerScript.new()
-	layer.tile_set = ts
 
 	var layout := _DualGrid16Sc.new()
 	layout.variation_mode = 2  # STRIP
-	var group := _group_single_terrain(layout)
-	layer.terrain_group = group
+	layer.layout = layout
+	layer.tile_set = ts
 	get_root().add_child(layer)
 	await process_frame
 	await process_frame
