@@ -4,14 +4,14 @@ milestone: v0.3
 milestone_name: Terrain + Variation + VirtuMap Integration
 status: executing
 stopped_at: Phase 10 context gathered
-last_updated: "2026-05-01T09:32:46.817Z"
-last_activity: 2026-04-30 -- Phase 10 execution started
+last_updated: "2026-05-01T11:20:32.862Z"
+last_activity: 2026-05-01 -- Phase 10.1 execution started
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 11
+  total_plans: 14
   completed_plans: 11
-  percent: 100
+  percent: 79
 ---
 
 # Project State
@@ -21,13 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25 after v0.2 pivot to layout library)
 
 **Core value:** Painting tiles with the native `TileMapLayer` API produces correct dual-grid autotiled visuals — without the user maintaining caches, terrain metadata, or 16-tile blob sets.
-**Current focus:** Phase 10 — multi-terrain-variation-implementation
+**Current focus:** Phase 10.1 — terrain-auto-detection-redesign-replace-manual-terraingroup
 
 ## Current Position
 
-Phase: 10.1 (terrain-auto-detection-redesign) — INSERTED
-Status: Needs planning. Spike 009 validated auto-detection approach.
-Last activity: 2026-05-01 — Spike 009 completed; Phase 10.1 inserted after Phase 10
+Phase: 10.1 (terrain-auto-detection-redesign-replace-manual-terraingroup) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 10.1
+Last activity: 2026-05-01 -- Phase 10.1 execution started
 
 > Phase 10 (Multi-Terrain + Variation Implementation) was fully executed (4/4 plans) but the TerrainGroup Resource + per-terrain layout array approach is overengineered. Spike 009 validated a simpler approach: auto-detect terrain count from atlas grid dimensions, use Godot native terrain sets for name/color storage (not solving), single shared PentaTileMapLayer.layout for all terrains. Phase 10.1 will replace the TerrainGroup implementation with this auto-detection design.
 

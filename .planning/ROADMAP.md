@@ -241,7 +241,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 3.5 → 4 → 5 → 6 → 7 �
 | 8. Research Triage + v0.3 Scope Selection | 4/4 | **Complete.** Verified competitive-autotiling claims, dispositioned supplied recommendations, ranked v0.3 candidates, wrote scope firewall, refined backlog triggers, and recommended **Terrain + Variation Authoring Research Spike** as the next v0.3 target. Production terrain/variation refactors remain blocked until spike findings plus user-side manual Godot testing exist. | 2026-04-30 |
 | 9. Terrain + Variation Authoring Research Spike | 3/3 | Complete. 09-ARCHITECTURE-RECOMMENDATION.md produced: PentaTileTerrainGroup + penta_terrain_id custom data layer + transient terrain index + 6-phase blueprint (~440 LOC). Godot terrain sets PDF fully extracted. All 6 phase decisions verified. | 2026-04-30 |
 | 10. Multi-Terrain + Variation Implementation | 4/4 | Complete   | 2026-04-30 |
-| 10.1. Terrain Auto-Detection Redesign | 0/3 | Planned — 3 plans, 2 waves | — |
+| 10.1. Terrain Auto-Detection Redesign | 1/3 | In Progress|  |
 | 11. VirtuMap Integration Bridge | 0/0 | Consumes spike 004+005. Blocked until Phase 10.1 completes. | — |
 
 ## Coverage
@@ -401,10 +401,10 @@ Plans:
 
 **Requirements**: MULTITERR-01, MULTITERR-02, MULTITERR-03, MULTITERR-04, MULTITERR-05, MULTITERR-07, MULTITERR-08
 **Depends on:** Phase 10
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 10.1-01-PLAN.md — Wave 1: Source code refactor — DELETE TerrainGroup infrastructure + ADD _auto_detect_terrains()/_on_tile_set_changed()/_resolve_terrain_id() + SIMPLIFY dual-grid per-corner dispatch + single-grid terrain dispatch + variation wiring
+- [x] 10.1-01-PLAN.md — Wave 1: Source code refactor — DELETE TerrainGroup infrastructure + ADD _auto_detect_terrains()/_on_tile_set_changed()/_resolve_terrain_id() + SIMPLIFY dual-grid per-corner dispatch + single-grid terrain dispatch + variation wiring
 - [ ] 10.1-02-PLAN.md — Wave 2: NEW tests (terrain_autodetect_test.gd + terrain_dispatch_test.gd + terrain_determinism_test.gd + terrain_sample_terrains_test.gd) + DELETE 5 old TerrainGroup-coupled tests
 - [ ] 10.1-03-PLAN.md — Wave 2: REWRITE tests (variation_determinism_test.gd + slope_layout_test.gd drop TerrainGroup) + UPDATE run_tests.ps1 inventory + closeout (ROADMAP.md + STATE.md)
 
