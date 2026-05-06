@@ -1,5 +1,5 @@
 @tool
-extends EditorPlugin
+extends VirtuEditorPlugin
 
 
 var _panel: Control
