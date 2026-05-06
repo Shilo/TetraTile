@@ -22,7 +22,7 @@
 14. [Identity & Footprint](#-identity--footprint)
 15. [Implementation Notes](#-implementation-notes)
 16. [Roadmap](#-roadmap)
-17. [Maintainer: create the addon split branch](#-maintainer-create-the-addon-split-branch)
+17. [Maintainer: publish the addon branch](#-maintainer-publish-the-addon-branch)
 18. [Using PentaTile as a subtree dependency](#-using-pentatile-as-a-subtree-dependency)
 19. [VS Code task for updating without typing the CLI command](#-vs-code-task-for-updating-without-typing-the-cli-command)
 20. [Dependencies](#-dependencies)
@@ -354,18 +354,34 @@ The logic layer is hidden with `self_modulate.a`, not `visible = false`, because
 
 Full deferred-features inventory is in [`.planning/REQUIREMENTS.md`](.planning/REQUIREMENTS.md) § "v2 Requirements".
 
-## 🔧 Maintainer: create the addon split branch
+## 🔧 Maintainer: publish the addon branch
 
-The public subtree branch is always named `addon`. After changing files under `addons/penta_tile` on `main`, refresh and push the split branch from the PentaTile repo root:
+The public subtree branch is always named `addon`. After changing files under `addons/penta_tile` on `main`, the GitHub workflow publishes that directory as the root of `addon` automatically.
+
+To create or repair the branch manually from the PentaTile repo root, publish the addon directory tree with `git commit-tree`:
 
 ```powershell
-git subtree split --prefix=addons/penta_tile main --branch addon
-git push origin addon
+$addonDir = "addons/penta_tile"
+git fetch origin "+refs/heads/addon:refs/remotes/origin/addon" 2>$null
+$addonTree = git rev-parse "main:$addonDir"
+$currentTree = git rev-parse "origin/addon^{tree}" 2>$null
+
+if ($LASTEXITCODE -eq 0 -and $addonTree -eq $currentTree) {
+  "addon branch already up to date"
+} else {
+  $parent = git rev-parse --verify origin/addon 2>$null
+  if ($LASTEXITCODE -eq 0) {
+    $newCommit = git commit-tree $addonTree -p $parent -m "chore: sync addon branch from $(git rev-parse --short main)"
+  } else {
+    $newCommit = git commit-tree $addonTree -m "chore: sync addon branch from $(git rev-parse --short main)"
+  }
+  git push origin "${newCommit}:refs/heads/addon"
+}
 ```
 
-The `addon` branch contains only the files that belong inside a dependent project's `addons/penta_tile` directory.
+The `addon` branch contains only the files that belong inside a dependent project's `addons/penta_tile` directory. It is a generated one-way publish branch, so make source changes under `addons/penta_tile` on `main` instead of editing `addon` directly.
 
-The `.github/workflows/sync-addon-branch.yml` workflow syncs the `addons/penta_tile` directory to the `addon` branch automatically whenever `main` receives changes under `addons/penta_tile`. Use the manual commands above when creating the branch for the first time, repairing it, or refreshing it outside GitHub Actions.
+The `.github/workflows/sync-addon-branch.yml` workflow uses the same `git commit-tree` publish flow whenever `main` receives changes under `addons/penta_tile`.
 
 ## 🌳 Using PentaTile as a subtree dependency
 
@@ -378,7 +394,7 @@ addons/virtucore
 
 Git subtree is useful here because the dependent repo gets real committed files instead of a submodule pointer. That means the project still opens normally in Godot and does not require an extra clone step.
 
-This repository is a full Godot demo project. The reusable addon files live in `addons/penta_tile`, so subtree consumers should use the generated `addon` split branch. Tyle Map Editor, Flyout Button, and NeoCade Theme are bundled as child subtrees inside `addons/penta_tile`; VirtuCore stays as a sibling subtree because it is shared by multiple addons.
+This repository is a full Godot demo project. The reusable addon files live in `addons/penta_tile`, so subtree consumers should use the generated `addon` branch. Tyle Map Editor, Flyout Button, and NeoCade Theme are bundled as child subtrees inside `addons/penta_tile`; VirtuCore stays as a sibling subtree because it is shared by multiple addons.
 
 ### Initialize the subtree
 

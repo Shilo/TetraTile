@@ -38,25 +38,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          tmp_dir="$(mktemp -d)"
-          cp -a "${ADDON_DIR}/." "${tmp_dir}/"
+          git fetch origin "+refs/heads/addon:refs/remotes/origin/addon" || true
 
-          git fetch origin addon || true
-          if git show-ref --verify --quiet refs/remotes/origin/addon; then
-            git checkout -B addon origin/addon
+          addon_tree="$(git rev-parse "HEAD:${ADDON_DIR}")"
+          if git rev-parse --verify --quiet "origin/addon^{tree}" >/dev/null; then
+            current_tree="$(git rev-parse "origin/addon^{tree}")"
+            if [ "${addon_tree}" = "${current_tree}" ]; then
+              echo "addon branch already up to date"
+              exit 0
+            fi
+
+            parent_args=(-p "origin/addon")
           else
-            git checkout --orphan addon
+            parent_args=()
           fi
 
-          git rm -r --ignore-unmatch .
-          git clean -fdx
-          cp -a "${tmp_dir}/." .
-          git add -A
-
-          if git diff --cached --quiet; then
-            echo "addon branch already up to date"
-            exit 0
-          fi
-
-          git commit -m "chore: sync addon branch from ${GITHUB_SHA::7}"
-          git push origin addon
+          new_commit="$(git commit-tree "${addon_tree}" "${parent_args[@]}" -m "chore: sync addon branch from ${GITHUB_SHA::7}")"
+          git push origin "${new_commit}:refs/heads/addon"
