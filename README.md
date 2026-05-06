@@ -11,12 +11,14 @@ addons/virtucore
 
 Git subtree is useful here because the dependent repo gets real committed files instead of a submodule pointer. That means the project still opens normally in Godot and does not require an extra clone step.
 
+This repository is a full Godot demo project. The reusable addon files live in `addons/virtucore`, so subtree consumers should use the `virtucore-addon` split branch. That branch contains only the files that belong inside a dependent project's `addons/virtucore` directory.
+
 ### Initialize the subtree
 
 From the root of the repo that depends on VirtuCore:
 
 ```powershell
-git subtree add --prefix=addons/virtucore https://github.com/Shilo/VirtuCore.git main --squash
+git subtree add --prefix=addons/virtucore https://github.com/Shilo/VirtuCore.git virtucore-addon --squash
 ```
 
 This adds the shared VirtuCore files into `addons/virtucore` and records enough subtree history for future updates.
@@ -26,7 +28,7 @@ This adds the shared VirtuCore files into `addons/virtucore` and records enough 
 From the dependent repo root:
 
 ```powershell
-git subtree pull --prefix=addons/virtucore https://github.com/Shilo/VirtuCore.git main --squash
+git subtree pull --prefix=addons/virtucore https://github.com/Shilo/VirtuCore.git virtucore-addon --squash
 ```
 
 If Git reports conflicts, resolve them like a normal merge, then commit the result.
@@ -48,7 +50,7 @@ In any dependent repo, create `.vscode/tasks.json` with this task:
         "pull",
         "--prefix=addons/virtucore",
         "https://github.com/Shilo/VirtuCore.git",
-        "main",
+        "virtucore-addon",
         "--squash"
       ],
       "problemMatcher": []
@@ -75,12 +77,13 @@ Optional keyboard shortcut in VS Code `keybindings.json`:
 
 The task still runs Git under the hood, but you can trigger it from VS Code without retyping the subtree command.
 
-## Rare: push subtree changes back to VirtuCore
+## Maintainer: refresh the split branch
 
-Most VirtuCore changes should be made in this repo directly. If a dependent repo makes a useful fix inside `addons/virtucore`, it can be pushed back with:
+After changing files under `addons/virtucore` in this repo, refresh and push the split branch before dependent repos pull:
 
 ```powershell
-git subtree push --prefix=addons/virtucore https://github.com/Shilo/VirtuCore.git main
+git subtree split --prefix=addons/virtucore main --branch virtucore-addon
+git push origin virtucore-addon
 ```
 
-Only use this when you intentionally want the dependent repo's `addons/virtucore` changes to become the latest VirtuCore `main`.
+Most VirtuCore changes should be made in this repo directly. If a dependent repo makes a useful fix inside `addons/virtucore`, port that fix back here, refresh the split branch, and then let dependent repos pull the updated subtree.
