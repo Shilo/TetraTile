@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c35xua1tnrubs"
-path="res://.godot/imported/eraser.svg-eaf2a21ebc038e28048e3519d1b3035d.ctex"
+path="res://.godot/imported/eraser.svg-0b6ead68bb97a1172a8cb7fd67cd5e19.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/tyle_map_editor/icons/eraser.svg"
-dest_files=["res://.godot/imported/eraser.svg-eaf2a21ebc038e28048e3519d1b3035d.ctex"]
+source_file="res://addons/penta_tile/tyle_map_editor/icons/eraser.svg"
+dest_files=["res://.godot/imported/eraser.svg-0b6ead68bb97a1172a8cb7fd67cd5e19.ctex"]
 
 [params]
 

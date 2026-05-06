@@ -28,7 +28,7 @@ const _PRIMARY_LAYER_NAME := "_PentaTileVisual"
 # in headless / --script mode where the global class registry is not pre-built.
 # Using preload() guarantees the script is resolved at parse time regardless of
 # registry state (Rule 1 fix — bare class_name references break outside editor).
-const _PentaTileSynthesis = preload("res://addons/penta_tile/penta_tile_synthesis.gd")
+const _PentaTileSynthesis = preload("uid://7jwwkp38fs7p")
 
 # Default-layout script preload. Used by the `layout` @export default expression
 # so a fresh PentaTileMapLayer node has a working Penta layout out of the box —
@@ -36,7 +36,8 @@ const _PentaTileSynthesis = preload("res://addons/penta_tile/penta_tile_synthesi
 # a scene gives Penta autotiling against the bundled FIVE-mode greybox without
 # any manual setup. Using preload() (not the class_name) avoids class-registry
 # ordering failures in headless / --script mode.
-const _DEFAULT_LAYOUT_SCRIPT = preload("res://addons/penta_tile/layouts/penta_tile_layout_penta.gd")
+const _DEFAULT_LAYOUT_SCRIPT = preload("uid://cv4klgob32b1")
+const _ABSTRACT_LAYOUT_SCRIPT = preload("uid://demq4p2knspb2")
 
 ## Source [Class TileSetAtlasSource] ID for atlas reads. [code]-1[/code] means
 ## "use the first source discovered in [member tile_set]." Set explicitly only
@@ -402,7 +403,7 @@ func _resolve_layout() -> PentaTileLayout:
 	# Abstract-base guard. Direct script comparison (not is_class) — only the EXACT
 	# base class is rejected; any subclass passes through.
 	var script := layout.get_script()
-	if script != null and script.resource_path == "res://addons/penta_tile/layouts/penta_tile_layout.gd":
+	if script != null and script == _ABSTRACT_LAYOUT_SCRIPT:
 		if not _abstract_base_warning_emitted:
 			push_warning("PentaTileMapLayer: `layout` is the abstract `PentaTileLayout` base class — pick a concrete subclass (PentaTileLayoutPenta / DualGrid16 / Wang2Edge / Wang2Corner / Minimal3x3). Painting suppressed until a subclass is bound.")
 			_abstract_base_warning_emitted = true

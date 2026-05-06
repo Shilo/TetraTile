@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="PentaTileLayoutDualGrid16" format=3 uid="uid://djgwx8a8o5d2j"]
 
-[ext_resource type="Script" path="res://addons/penta_tile/layouts/penta_tile_layout_dual_grid_16.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://bhs1ahn8a2sq4" path="res://addons/penta_tile/layouts/penta_tile_layout_dual_grid_16.gd" id="1_script"]
 
 [resource]
 script = ExtResource("1_script")

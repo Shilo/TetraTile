@@ -120,7 +120,7 @@ static func _collapse_8bit_moore(raw: int) -> int:
 
 
 func _default_bitmask_template_path() -> String:
-	return "res://addons/penta_tile/layouts/penta_tile_layout_blob_47_godot.png"
+	return "uid://mmls24qo7tlb"
 
 
 func _fallback_atlas_grid_size() -> Vector2i:

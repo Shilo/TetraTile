@@ -98,17 +98,17 @@ enum TileCountMode {
 # lookup is only invoked AFTER detection resolves to ONE..FIVE (1..5), so AUTO/AUTO_STRIP
 # keys are not present in this table.
 const _BITMASK_TEMPLATE_LOOKUP := {
-	# Vector2i(axis, mode) → res:// path
-	Vector2i(Axis.HORIZONTAL, TileCountMode.ONE):   "res://addons/penta_tile/layouts/penta_tile_layout_penta/one_horizontal.png",
-	Vector2i(Axis.HORIZONTAL, TileCountMode.TWO):   "res://addons/penta_tile/layouts/penta_tile_layout_penta/two_horizontal.png",
-	Vector2i(Axis.HORIZONTAL, TileCountMode.THREE): "res://addons/penta_tile/layouts/penta_tile_layout_penta/three_horizontal.png",
-	Vector2i(Axis.HORIZONTAL, TileCountMode.FOUR):  "res://addons/penta_tile/layouts/penta_tile_layout_penta/four_horizontal.png",
-	Vector2i(Axis.HORIZONTAL, TileCountMode.FIVE):  "res://addons/penta_tile/layouts/penta_tile_layout_penta/five_horizontal.png",
-	Vector2i(Axis.VERTICAL,   TileCountMode.ONE):   "res://addons/penta_tile/layouts/penta_tile_layout_penta/one_vertical.png",
-	Vector2i(Axis.VERTICAL,   TileCountMode.TWO):   "res://addons/penta_tile/layouts/penta_tile_layout_penta/two_vertical.png",
-	Vector2i(Axis.VERTICAL,   TileCountMode.THREE): "res://addons/penta_tile/layouts/penta_tile_layout_penta/three_vertical.png",
-	Vector2i(Axis.VERTICAL,   TileCountMode.FOUR):  "res://addons/penta_tile/layouts/penta_tile_layout_penta/four_vertical.png",
-	Vector2i(Axis.VERTICAL,   TileCountMode.FIVE):  "res://addons/penta_tile/layouts/penta_tile_layout_penta/five_vertical.png",
+	# Vector2i(axis, mode) -> uid:// path
+	Vector2i(Axis.HORIZONTAL, TileCountMode.ONE):   "uid://cr3wyyrt6of5b",
+	Vector2i(Axis.HORIZONTAL, TileCountMode.TWO):   "uid://dhoxhce1lba88",
+	Vector2i(Axis.HORIZONTAL, TileCountMode.THREE): "uid://wchqdbnvfofe",
+	Vector2i(Axis.HORIZONTAL, TileCountMode.FOUR):  "uid://ff65perpvrkl",
+	Vector2i(Axis.HORIZONTAL, TileCountMode.FIVE):  "uid://dv5cnpb3nybxo",
+	Vector2i(Axis.VERTICAL,   TileCountMode.ONE):   "uid://byh17tde58wew",
+	Vector2i(Axis.VERTICAL,   TileCountMode.TWO):   "uid://bx1ucn7oeqs7n",
+	Vector2i(Axis.VERTICAL,   TileCountMode.THREE): "uid://dmotk8bqmb5o1",
+	Vector2i(Axis.VERTICAL,   TileCountMode.FOUR):  "uid://1ax7f06d8hhi",
+	Vector2i(Axis.VERTICAL,   TileCountMode.FIVE):  "uid://dqwmt8lwowerf",
 }
 
 # Slot indices in the synthesized strip (locked Phase 2 ordering).

@@ -111,7 +111,7 @@ func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
 
 
 func _default_bitmask_template_path() -> String:
-	return "res://addons/penta_tile/layouts/penta_tile_layout_pixel_lab_top_down.png"
+	return "uid://crhotgtg4lij6"
 
 
 func _fallback_atlas_grid_size() -> Vector2i:

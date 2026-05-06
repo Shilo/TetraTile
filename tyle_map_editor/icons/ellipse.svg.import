@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dkuxmbgjg8jpt"
-path="res://.godot/imported/ellipse.svg-71338fab19c54a45a0a4d5c54e340fba.ctex"
+path="res://.godot/imported/ellipse.svg-79b037c741c79a06a9797a2e6ad75e28.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/tyle_map_editor/icons/ellipse.svg"
-dest_files=["res://.godot/imported/ellipse.svg-71338fab19c54a45a0a4d5c54e340fba.ctex"]
+source_file="res://addons/penta_tile/tyle_map_editor/icons/ellipse.svg"
+dest_files=["res://.godot/imported/ellipse.svg-79b037c741c79a06a9797a2e6ad75e28.ctex"]
 
 [params]
 

@@ -54,7 +54,7 @@ func mask_to_atlas(mask: int, _strip_index: int = 0) -> PentaTileAtlasSlot:
 
 
 func _default_bitmask_template_path() -> String:
-	return "res://addons/penta_tile/layouts/penta_tile_layout_dual_grid_16.png"
+	return "uid://dyc15pnv4bjpv"
 
 
 # Base get_fallback_tile_set reads bitmask_template + this grid to build the TileSet.

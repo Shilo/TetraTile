@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ypqyaiosux1n"
-path="res://.godot/imported/rectangle_filled.svg-01727ea461c833e0b91ac990c75a8b04.ctex"
+path="res://.godot/imported/rectangle_filled.svg-fe3972084769305e1db7030fb2372fd5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/tyle_map_editor/icons/rectangle_filled.svg"
-dest_files=["res://.godot/imported/rectangle_filled.svg-01727ea461c833e0b91ac990c75a8b04.ctex"]
+source_file="res://addons/penta_tile/tyle_map_editor/icons/rectangle_filled.svg"
+dest_files=["res://.godot/imported/rectangle_filled.svg-fe3972084769305e1db7030fb2372fd5.ctex"]
 
 [params]
 

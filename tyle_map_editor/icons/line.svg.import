@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dt1jbe4kjwi7g"
-path="res://.godot/imported/line.svg-3f77fcab48d8d2f485a60f665b13ef12.ctex"
+path="res://.godot/imported/line.svg-a0aa83995d04a1bbf15d8cecb364bebc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/tyle_map_editor/icons/line.svg"
-dest_files=["res://.godot/imported/line.svg-3f77fcab48d8d2f485a60f665b13ef12.ctex"]
+source_file="res://addons/penta_tile/tyle_map_editor/icons/line.svg"
+dest_files=["res://.godot/imported/line.svg-a0aa83995d04a1bbf15d8cecb364bebc.ctex"]
 
 [params]
 

@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="PentaTileLayoutMinimal3x3" format=3 uid="uid://cyimhejdg5wwv"]
 
-[ext_resource type="Script" path="res://addons/penta_tile/layouts/penta_tile_layout_minimal_3x3.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://b6cr0i1hrjie" path="res://addons/penta_tile/layouts/penta_tile_layout_minimal_3x3.gd" id="1_script"]
 
 [resource]
 script = ExtResource("1_script")

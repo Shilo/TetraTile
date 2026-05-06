@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="PentaTileLayoutWang2Corner" format=3 uid="uid://cqq56v6nn5fmg"]
 
-[ext_resource type="Script" path="res://addons/penta_tile/layouts/penta_tile_layout_wang_2_corner.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://dumc4kkssfuou" path="res://addons/penta_tile/layouts/penta_tile_layout_wang_2_corner.gd" id="1_script"]
 
 [resource]
 script = ExtResource("1_script")
