@@ -156,11 +156,12 @@ jobs:
           set -e
           # git archive includes ONLY tracked files at the tagged commit.
           # --prefix puts everything under penta_tile-v<VERSION>/ inside the zip.
-          # The pathspec restricts the archive to addons/penta_tile/ only.
+          # The pathspec restricts the archive to the shipped addon plus
+          # VirtuCore, which is required as a sibling dependency.
           git archive --format=zip \
             --prefix="penta_tile-v${NEW_VERSION}/" \
             -o "penta_tile-v${NEW_VERSION}.zip" \
-            "v${NEW_VERSION}" -- addons/penta_tile/
+            "v${NEW_VERSION}" -- addons/penta_tile/ addons/virtucore/
           ls -la "penta_tile-v${NEW_VERSION}.zip"
           echo "Zip contents (first 20 entries):"
           unzip -l "penta_tile-v${NEW_VERSION}.zip" | head -25
