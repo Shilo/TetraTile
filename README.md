@@ -365,7 +365,7 @@ git push origin addon
 
 The `addon` branch contains only the files that belong inside a dependent project's `addons/penta_tile` directory.
 
-The `.github/workflows/sync-addon-branch.yml` workflow runs this split automatically whenever `main` receives changes under `addons/penta_tile`. Use the manual commands above when creating the branch for the first time, repairing it, or refreshing it outside GitHub Actions.
+The `.github/workflows/sync-addon-branch.yml` workflow syncs the `addons/penta_tile` directory to the `addon` branch automatically whenever `main` receives changes under `addons/penta_tile`. Use the manual commands above when creating the branch for the first time, repairing it, or refreshing it outside GitHub Actions.
 
 ## 🌳 Using PentaTile as a subtree dependency
 

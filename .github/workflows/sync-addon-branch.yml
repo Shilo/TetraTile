@@ -25,14 +25,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Split addon directory
-        id: split
+      - name: Configure Git author
         shell: bash
         run: |
-          split_commit="$(git subtree split --prefix=addons/penta_tile "${GITHUB_SHA}")"
-          echo "split_commit=${split_commit}" >> "${GITHUB_OUTPUT}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Push addon branch
+      - name: Sync addon branch
         shell: bash
+        env:
+          ADDON_DIR: addons/penta_tile
         run: |
-          git push origin "${{ steps.split.outputs.split_commit }}:refs/heads/addon"
+          set -euo pipefail
+
+          tmp_dir="$(mktemp -d)"
+          cp -a "${ADDON_DIR}/." "${tmp_dir}/"
+
+          git fetch origin addon || true
+          if git show-ref --verify --quiet refs/remotes/origin/addon; then
+            git checkout -B addon origin/addon
+          else
+            git checkout --orphan addon
+          fi
+
+          git rm -r --ignore-unmatch .
+          git clean -fdx
+          cp -a "${tmp_dir}/." .
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "addon branch already up to date"
+            exit 0
+          fi
+
+          git commit -m "chore: sync addon branch from ${GITHUB_SHA::7}"
+          git push origin addon
